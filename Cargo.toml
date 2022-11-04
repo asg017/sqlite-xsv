@@ -1,0 +1,14 @@
+[package]
+name = "sqlite-xsv"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sqlite3-loadable = {path="../rust-sqlite-exts/sqlite3-loadable"}
+sqlite3ext-sys = {path="../rust-sqlite-exts/sqlite3ext-sys"}
+csv = "1.1"
+flate2 = "1.0.24"
+
+[lib]
+crate-type=["rlib", "staticlib", "cdylib"]
+name = "xsv0"
