@@ -7,4 +7,7 @@ loadable-dev:
 format:
 	cargo fmt
 
+sqlite-xsv.h: cbindgen.toml
+	rustup run nightly cbindgen  --config $< -o $@
+
 .PHONY: test loadable-dev

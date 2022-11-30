@@ -1,15 +1,10 @@
 use csv::{Reader, ReaderBuilder};
-use sqlite3_loadable::{
-    errors::{BestIndexError, Result},
-    table::{ConstraintOperator, SqliteXIndexInfo, VTab, VTabCursor, VTableArguments},
-    SqliteContext, SqliteValue,
-};
-use sqlite3ext_sys::{sqlite3, sqlite3_vtab, sqlite3_vtab_cursor};
+use sqlite_loadable::prelude::*;
+use sqlite_loadable::{Result, BestIndexError, api, table::{ConstraintOperator, VTab, VTabCursor, VTabArguments, IndexInfo}};
 
 use std::{mem, os::raw::c_int};
 
-static CREATE_SQL: &str = "CREATE TABLE x(record text, records hidden)";
-static CREATE_SQL_DELIMITER: &str = "CREATE TABLE x(record text, delimiter hidden, records hidden)";
+const CREATE_SQL: &str = "CREATE TABLE x(record text, records hidden)";
 enum Columns {
     Record,
     Records,
@@ -22,6 +17,7 @@ fn column(index: i32) -> Option<Columns> {
     }
 }
 
+const CREATE_SQL_DELIMITER: &str = "CREATE TABLE x(record text, delimiter hidden, records hidden)";
 enum ColumnsDelimiter {
     Record,
     Delimiter,
@@ -61,18 +57,18 @@ impl XsvRecordsCursor<'_> {
     }
 }
 
-unsafe impl VTabCursor for XsvRecordsCursor<'_> {
+impl VTabCursor for XsvRecordsCursor<'_> {
     fn filter(
         &mut self,
         _idx_num: c_int,
         _idx_str: Option<&str>,
-        values: Vec<SqliteValue>,
+        values: &[*mut sqlite3_value],
     ) -> Result<()> {
-        let (records, delimiter) = match self.delimiter {
-            Some(d) => (values.get(0).unwrap().text()?, d),
+        let (delimiter, records) = match self.delimiter {
+            Some(d) => (d, api::value_text(values.get(0).unwrap())?),
             None => (
-                values.get(1).unwrap().text()?,
-                values.get(0).unwrap().text()?.as_bytes()[0],
+                api::value_text(values.get(0).unwrap())?.as_bytes().first().unwrap().to_owned(),
+                api::value_text(values.get(1).unwrap())?,
             ),
         };
         let records: Vec<String> = ReaderBuilder::new()
@@ -107,12 +103,15 @@ unsafe impl VTabCursor for XsvRecordsCursor<'_> {
         self.eof
     }
 
-    fn column(&self, ctx: SqliteContext, i: c_int) -> Result<()> {
+    fn column(&self, context: *mut sqlite3_context, i: c_int) -> Result<()> {
         match column(i) {
             Some(Columns::Record) => {
-                ctx.result_text(self.records.as_ref().unwrap().get(self.current).unwrap())?;
+              api::result_text(
+                    context,
+                    self.records.as_ref().unwrap().get(self.current).unwrap(),
+                )?;
             }
-            _ => (),
+            _ => todo!(),
         }
         Ok(())
     }
@@ -129,14 +128,14 @@ pub struct XsvRecordsTable {
     delimiter: Option<u8>,
 }
 
-unsafe impl<'vtab> VTab<'vtab> for XsvRecordsTable {
+impl<'vtab> VTab<'vtab> for XsvRecordsTable {
     type Aux = u8;
     type Cursor = XsvRecordsCursor<'vtab>;
 
     fn connect(
         _db: *mut sqlite3,
         aux: Option<&Self::Aux>,
-        _args: VTableArguments,
+        _args: VTabArguments,
     ) -> Result<(String, XsvRecordsTable)> {
         let base: sqlite3_vtab = unsafe { mem::zeroed() };
         let vtab = XsvRecordsTable {
@@ -154,12 +153,12 @@ unsafe impl<'vtab> VTab<'vtab> for XsvRecordsTable {
         Ok(())
     }
 
-    fn best_index(&self, mut info: SqliteXIndexInfo) -> core::result::Result<(), BestIndexError> {
+    fn best_index(&self, mut info: IndexInfo) -> core::result::Result<(), BestIndexError> {
         match self.delimiter {
             Some(_) => {
                 let mut has_records = false;
                 for mut constraint in info.constraints() {
-                    match column(constraint.icolumn()) {
+                    match column(constraint.column_idx()) {
                         Some(Columns::Records) => {
                             if constraint.usable()
                                 && constraint.op() == Some(ConstraintOperator::EQ)
@@ -182,7 +181,7 @@ unsafe impl<'vtab> VTab<'vtab> for XsvRecordsTable {
                 let mut has_delimiter = false;
                 let mut has_records = false;
                 for mut constraint in info.constraints() {
-                    match column_delimiter(constraint.icolumn()) {
+                    match column_delimiter(constraint.column_idx()) {
                         Some(ColumnsDelimiter::Delimiter) => {
                             if constraint.usable()
                                 && constraint.op() == Some(ConstraintOperator::EQ)

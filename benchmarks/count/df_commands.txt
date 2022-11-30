@@ -1,0 +1,7 @@
+
+CREATE EXTERNAL TABLE totals
+STORED AS CSV
+WITH HEADER ROW
+LOCATION '../_data/totals.csv';
+
+SELECT count(*) FROM totals;

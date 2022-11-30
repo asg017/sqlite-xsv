@@ -4,11 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sqlite3-loadable = {path="../rust-sqlite-exts/sqlite3-loadable"}
-sqlite3ext-sys = {path="../rust-sqlite-exts/sqlite3ext-sys"}
+sqlite-loadable = {version="0.0.2", path="../sqlite-loadable-rs"}
 csv = "1.1"
-flate2 = "1.0.24"
+flate2 = {version="1.0.24", optional=true}
+url = {version="2.3.1", optional = true}
+
+[build-dependencies]
+cbindgen = "0.24.3"
+
+[features]
+default = ["gzip_support"]
+gzip_support = ["dep:flate2"]
+
 
 [lib]
-crate-type=["rlib", "staticlib", "cdylib"]
+crate-type=["lib", "staticlib", "cdylib"]
 name = "xsv0"

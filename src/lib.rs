@@ -1,34 +1,38 @@
-pub mod field_at;
-pub mod meta;
-pub mod util;
-pub mod xsv;
-pub mod xsv_reader;
-pub mod xsv_records;
+mod field_at;
+mod meta;
+mod util;
+mod vutils;
+mod xsv;
+mod xsv_reader;
+mod xsv_records;
 
-pub use crate::{
-    field_at::{csv_field_at, tsv_field_at, xsv_field_at},
+use crate::{
+    field_at::xsv_field_at,
     meta::{xsv_debug, xsv_version},
     xsv::XsvTable,
     xsv_reader::XsvReaderTable,
     xsv_records::XsvRecordsTable,
 };
-
-use sqlite3_loadable::{
-    errors::Result,
-    scalar::define_scalar_function,
-    sqlite3, sqlite3_entrypoint, sqlite3_imports,
-    table::{define_table_function, define_virtual_table},
+use sqlite_loadable::prelude::*;
+use sqlite_loadable::{
+    define_scalar_function, define_scalar_function_with_aux, define_table_function,
+    define_virtual_table, FunctionFlags, Result,
 };
 
-sqlite3_imports!();
 
-#[sqlite3_entrypoint]
+#[sqlite_entrypoint]
 pub fn sqlite3_xsv_init(db: *mut sqlite3) -> Result<()> {
     let comma = b',';
     let tab = b'\t';
 
-    define_scalar_function(db, "xsv_version", 0, xsv_version)?;
-    define_scalar_function(db, "xsv_debug", 0, xsv_debug)?;
+    define_scalar_function(
+        db,
+        "xsv_version",
+        0,
+        xsv_version,
+        FunctionFlags::DETERMINISTIC,
+    )?;
+    define_scalar_function(db, "xsv_debug", 0, xsv_debug, FunctionFlags::DETERMINISTIC)?;
 
     define_virtual_table::<XsvTable>(db, "xsv", None)?;
     define_virtual_table::<XsvTable>(db, "csv", Some(comma))?;
@@ -42,9 +46,10 @@ pub fn sqlite3_xsv_init(db: *mut sqlite3) -> Result<()> {
     define_table_function::<XsvRecordsTable>(db, "tsv_records", Some(tab))?;
     define_table_function::<XsvRecordsTable>(db, "xsv_records", None)?;
 
-    define_scalar_function(db, "csv_field_at", 2, csv_field_at)?;
-    define_scalar_function(db, "tsv_field_at", 2, tsv_field_at)?;
-    define_scalar_function(db, "xsv_field_at", 3, xsv_field_at)?;
+    let flags = FunctionFlags::UTF8 | FunctionFlags::DETERMINISTIC;
+    define_scalar_function_with_aux(db, "csv_field_at", 2, xsv_field_at, flags, Some(comma))?;
+    define_scalar_function_with_aux(db, "tsv_field_at", 2, xsv_field_at, flags, Some(tab))?;
+    define_scalar_function_with_aux(db, "xsv_field_at", 3, xsv_field_at, flags, None)?;
 
     Ok(())
 }

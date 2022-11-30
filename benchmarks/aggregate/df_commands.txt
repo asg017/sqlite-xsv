@@ -1,0 +1,7 @@
+
+CREATE EXTERNAL TABLE yellow_202104
+STORED AS CSV
+WITH HEADER ROW
+LOCATION '../_data/yellow_202104.csv';
+
+SELECT passenger_count, COUNT(*), AVG(total_amount) FROM yellow_202104 group by 1;

@@ -135,6 +135,17 @@ class TestXsv(unittest.TestCase):
       ]
     )
 
+    # ensure "\t" can be passed in as delimiter
+    db.execute("create virtual table students_tsv_with_xsv using xsv(filename='tests/data/students.tsv', delimiter='\t');").fetchall()
+    self.assertEqual(
+      execute_all("select rowid, * from students_tsv_with_xsv"),
+       [
+        {'rowid': 1, 'age': '10', 'id': '1', 'name': 'alex', 'process': '.9'},
+        {'rowid': 2, 'age': '20', 'id': '2', 'name': 'brian', 'process': '.7'},
+        {'rowid': 3, 'age': '30', 'id': '3', 'name': 'craig', 'process': '.3'}
+      ]
+    )
+
   def test_tsv(self):
     db.execute("create virtual table students_tsv using tsv(filename='tests/data/students.tsv');").fetchall()
     self.assertEqual(
@@ -184,21 +195,21 @@ class TestXsv(unittest.TestCase):
     )
     self.exec_fails_with(
       "create virtual table q using csv(filename);", 
-      "Invalid argument, not a parameter"
+      "no filename given. Specify a path to a CSV file to read from with 'filename=\"path.csv\"'"
     )
     self.exec_fails_with(
       "create virtual table q using csv(file=);", 
-      "Invalid argument, 'file' not a valid parameter key"
+      "Empty value for key 'file'"
     )
     self.exec_fails_with(
       "create virtual table q using csv(filename=students.csv);", 
-      "filename value not valid, wrap in single or double quotes"
+      "'filename' value must be string, wrap in single or double quotes."
     )
 
-    self.exec_fails_with(
-      "create virtual table q using csv(filename=:not_exist);", 
-      "temp.sqlite_parameters is not defined, can't use sqlite parameters as value"
-    )
+    #self.exec_fails_with(
+    #  "create virtual table q using csv(filename=:not_exist);", 
+    #  "temp.sqlite_parameters is not defined, can't use sqlite parameters as value"
+    #)
     
 
     db.execute("create virtual table invalidrow using csv(filename='tests/data/invalid-row.csv');").fetchall()
@@ -212,7 +223,7 @@ class TestXsv(unittest.TestCase):
     #  "Error: no file extension detected for 'what'"
     #)
   def test_csv_reader(self):
-    execute_all("create virtual table students_reader using csv_reader(id integer primary key, name text, age integer, progess real);")
+    execute_all("create virtual table students_reader using csv_reader(id integer, name text, age integer, progess real);")
     self.assertEqual(
       execute_all("select * from students_reader('tests/data/student_files/a.csv')"),
       [
@@ -248,9 +259,10 @@ class TestXsv(unittest.TestCase):
       execute_all("select * from pragma_table_xinfo('students_reader');"),
       [
         {'cid': 0, 'name': '_source', 'type': '', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 1}, 
-        {'cid': 1, 'name': 'id', 'type': 'INTEGER', 'notnull': 0, 'dflt_value': None, 'pk': 1, 'hidden': 0}, 
-        {'cid': 2, 'name': 'name', 'type': 'TEXT', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 0}, 
-        {'cid': 3, 'name': 'age', 'type': 'INTEGER', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 0}, 
+        # TODO does "integer primary key" ever make sense?
+        {'cid': 1, 'name': 'id',      'type': 'INTEGER', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 0}, 
+        {'cid': 2, 'name': 'name',    'type': 'TEXT', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 0}, 
+        {'cid': 3, 'name': 'age',     'type': 'INTEGER', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 0}, 
         {'cid': 4, 'name': 'progess', 'type': 'REAL', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 0}
       ]
     )

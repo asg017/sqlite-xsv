@@ -1,4 +1,5 @@
-use std::process::Command;
+use std::{process::Command};
+
 fn main() {
     let output = Command::new("git")
         .args(&["rev-parse", "HEAD"])
