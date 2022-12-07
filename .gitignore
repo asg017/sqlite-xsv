@@ -5,3 +5,5 @@ benchmarks/vsv.c
 benchmarks/_data/
 benchmarks/**/*.csv
 http/
+NOTES
+dist/

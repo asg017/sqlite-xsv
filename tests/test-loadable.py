@@ -3,7 +3,7 @@ import unittest
 import time
 import os
 
-EXT_PATH="./target/debug/libxsv0"
+EXT_PATH="./dist/debug/xsv0"
 
 def connect(ext):
   db = sqlite3.connect(":memory:")
