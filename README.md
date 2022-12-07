@@ -1,6 +1,6 @@
 # sqlite-xsv
 
-A fast and performant SQLite extension for CSVs, TSVs, and other-SVs, written in Rust!
+A fast and performant SQLite extension for CSVs, TSVs, and other-SVs, written in Rust! See [`sqlite-loadable-rs`](https://github.com/asg017/sqlite-loadable-rs), the framework that makes this extension possible.
 
 > **Note**
 > Nothing to do with [xsv](https://github.com/BurntSushi/xsv), but is based on the same [Rust CSV crate](https://github.com/BurntSushi/rust-csv). This is named `sqlite-xsv` to distinguish between the official [SQLite CSV Virtual table](https://www.sqlite.org/csv.html) and the [`sqlean` vsv extension](https://github.com/nalgeon/sqlean/blob/main/docs/vsv.md).
