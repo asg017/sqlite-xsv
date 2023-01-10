@@ -1,24 +1,13 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use flate2::bufread::GzDecoder;
+use std::ffi::OsStr;
+use std::fs::File;
+use std::io::{BufReader, Read};
+use std::path::Path;
+
+use flate2::read::GzDecoder;
 use sqlite_loadable::prelude::*;
-use sqlite_loadable::{
-    Error, Result,
-    vtab_argparse::ConfigOptionValue
-};
-use std::{
-    ffi::{CStr, CString, OsStr},
-    fs::File,
-    io::{BufReader, Read},
-    os::raw::c_char,
-    path::Path,
-};
-
-
-#[cfg(feature = "http_support")]
-use sqlite_loadable::{api::value_pointer, ext::sqlite3ext_column_value};
-#[cfg(feature = "http_support")]
-use url::Url;
+use sqlite_loadable::{vtab_argparse::ConfigOptionValue, Error, Result};
 
 /// given a "path" (which can be a filepath or URL, if http_support or
 /// s3_support is enabled), return an std::io::Reader that can be passed
@@ -26,19 +15,6 @@ use url::Url;
 /// decompressing  (based on file extension only for now), or whether
 /// to use sqlite-http/sqlite-s3 if a URL is supplied.
 pub fn get_csv_source_reader(path: &str) -> Result<Box<dyn Read>> {
-    #[cfg(feature = "http_support")]
-    if let Ok(url) = Url::parse(path) {
-        match url.scheme() {
-            "http" | "https" => {
-                let call = sqlite_http_call(db, path).expect("http_call to succes");
-                return Ok(Box::new(call.read()));
-            }
-            _ => {
-                let call = sqlite_s3_http(db, path).expect("http_call to succes");
-                return Ok(Box::new(call.read()));
-            }
-        }
-    }
     match Path::new(path).extension().and_then(OsStr::to_str) {
         Some(ext) => match ext {
             #[cfg(feature = "gzip_support")]
@@ -61,111 +37,6 @@ pub fn get_csv_source_reader(path: &str) -> Result<Box<dyn Read>> {
     }
 }
 
-/* 
-pub fn sqlite_parameter_value(
-    db: *mut sqlite3,
-    key: &str,
-) -> std::result::Result<Option<String>, QueryRowError> {
-    let lookup = "select value from temp.sqlite_parameters where key = ?";
-    let mut stmt: *mut sqlite3_stmt = std::ptr::null_mut();
-    let clookup = CString::new(lookup).unwrap();
-    let code =
-        unsafe { sqlite3ext_prepare_v2(db, clookup.as_ptr(), -1, &mut stmt, std::ptr::null_mut()) };
-    if code != 0 {
-        return Err(QueryRowError::Prepare(code));
-    }
-    if stmt.is_null() {
-        return Err(QueryRowError::NullQuery);
-    }
-    let ckey = CString::new(key.as_bytes()).unwrap();
-    unsafe {
-        sqlite3ext_bind_text(stmt, 1, ckey.as_ptr(), -1);
-    }
-    let step = unsafe { sqlite3ext_step(stmt) };
-
-    if step == 100 {
-        let cvalue = unsafe { sqlite3ext_column_text(stmt, 0) };
-        let value = unsafe { CStr::from_ptr(cvalue as *const c_char) };
-
-        let result = value.to_str().unwrap().to_owned();
-        unsafe { sqlite3ext_finalize(stmt) };
-        return Ok(Some(result));
-    }
-    unsafe { sqlite3ext_finalize(stmt) };
-    Ok(None)
-}
-*/
-
-#[cfg(feature = "s3_support")]
-use http0::http::HttpCall;
-
-#[cfg(feature = "s3_support")]
-pub fn sqlite_s3_http(db: *mut sqlite3, key: &str) -> Result<Box<HttpCall>, QueryRowError> {
-    let lookup = "select http_call(s3_object_get_presigned_url(?, 60))";
-    let mut stmt: *mut sqlite3_stmt = std::ptr::null_mut();
-    let clookup = CString::new(lookup).unwrap();
-    let code =
-        unsafe { sqlite3ext_prepare_v2(db, clookup.as_ptr(), -1, &mut stmt, std::ptr::null_mut()) };
-    if code != 0 {
-        return Err(QueryRowError::Prepare(code));
-    }
-    if stmt.is_null() {
-        return Err(QueryRowError::NullQuery);
-    }
-    let ckey = CString::new(key.as_bytes()).unwrap();
-    unsafe {
-        sqlite3ext_bind_text(stmt, 1, ckey.as_ptr(), -1);
-    }
-    let step = unsafe { sqlite3ext_step(stmt) };
-
-    if step == 100 {
-        unsafe {
-            let value = sqlite3ext_column_value(stmt, 0);
-            let p = value_pointer(value, "http_call");
-            sqlite3ext_finalize(stmt);
-            return Ok(Box::from_raw(p.cast::<HttpCall>()));
-        }
-    }
-    unsafe { sqlite3ext_finalize(stmt) };
-    Err(QueryRowError::NoRow(step))
-} //*/
-#[derive(Debug)]
-pub enum QueryRowError {
-    Prepare(i32),
-    NullQuery,
-    #[cfg(feature = "http_support")]
-    NoRow(i32),
-}
-#[cfg(feature = "http_support")]
-pub fn sqlite_http_call(db: *mut sqlite3, key: &str) -> Result<Box<HttpCall>, QueryRowError> {
-    let lookup = "select http_call(?)";
-    let mut stmt: *mut sqlite3_stmt = std::ptr::null_mut();
-    let clookup = CString::new(lookup).unwrap();
-    let code =
-        unsafe { sqlite3ext_prepare_v2(db, clookup.as_ptr(), -1, &mut stmt, std::ptr::null_mut()) };
-    if code != 0 {
-        return Err(QueryRowError::Prepare(code));
-    }
-    if stmt.is_null() {
-        return Err(QueryRowError::NullQuery);
-    }
-    let ckey = CString::new(key.as_bytes()).unwrap();
-    unsafe {
-        sqlite3ext_bind_text(stmt, 1, ckey.as_ptr(), -1);
-    }
-    let step = unsafe { sqlite3ext_step(stmt) };
-    if step == 100 {
-        unsafe {
-            let value = sqlite3ext_column_value(stmt, 0);
-            let p = value_pointer(value, "http_call");
-            sqlite3ext_finalize(stmt);
-            return Ok(Box::from_raw(p.cast::<HttpCall>()));
-        }
-    }
-    unsafe { sqlite3ext_finalize(stmt) };
-    Err(QueryRowError::NoRow(step))
-}
-
 /// Parse the `delimiter="|"` config option argument.
 /// Only quoted, single-character values are allowed.
 pub fn parse_delimiter_config_value(value: ConfigOptionValue) -> Result<u8> {
@@ -173,11 +44,22 @@ pub fn parse_delimiter_config_value(value: ConfigOptionValue) -> Result<u8> {
         let mut bytes = value.bytes();
         let result = bytes
             .next()
-            .ok_or_else(|| Error::new_message("delimiter must have at least 1 character"))?;
-        if bytes.next().is_some() {
-            return Err(Error::new_message("delimiter can only be 1 character long"));
+            .ok_or_else(|| Error::new_message("quote must have at least 1 character"))?;
+        match bytes.next() {
+            Some(c) => {
+                if result != b'\\' {
+                    return Err(Error::new_message("quote can only be 1 character long`"));
+                }
+
+                match c {
+                    b'0' => Ok(b'\0'),
+                    b't' => Ok(b'\t'),
+                    b'n' => Ok(b'\n'),
+                    _ => Err(Error::new_message("unrecognized slash value")),
+                }
+            }
+            _ => Ok(result),
         }
-        Ok(result)
     } else {
         Err(Error::new_message(
             "'delimiter' value must be string, wrap in single or double quotes.",
@@ -193,10 +75,21 @@ pub fn parse_quote_config_value(value: ConfigOptionValue) -> Result<u8> {
         let result = bytes
             .next()
             .ok_or_else(|| Error::new_message("quote must have at least 1 character"))?;
-        if bytes.next().is_some() {
-            return Err(Error::new_message("quote can only be 1 character long`"));
+        match bytes.next() {
+            Some(c) => {
+                if result != b'\\' {
+                    return Err(Error::new_message("quote can only be 1 character long`"));
+                }
+
+                match c {
+                    b'0' => Ok(b'\0'),
+                    b't' => Ok(b'\t'),
+                    b'n' => Ok(b'\n'),
+                    _ => Err(Error::new_message("unrecognized slash value")),
+                }
+            }
+            _ => Ok(result),
         }
-        Ok(result)
     } else {
         Err(Error::new_message(
             "'quote' value must be string, wrap in single or double quotes.",
@@ -206,7 +99,7 @@ pub fn parse_quote_config_value(value: ConfigOptionValue) -> Result<u8> {
 
 /// Parse the `file="path/to.csv"` config option argument.
 /// Value can either be quoted strings or sqlite_parameter name values.
-pub fn parse_filename_config_value(db: *mut sqlite3, value: ConfigOptionValue) -> Result<String> {
+pub fn parse_filename_config_value(_db: *mut sqlite3, value: ConfigOptionValue) -> Result<String> {
     match value {
         ConfigOptionValue::Quoted(value) => Ok(value),
         /*ConfigOptionValue::SqliteParameter(value) => {

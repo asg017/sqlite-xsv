@@ -1,7 +1,6 @@
 mod field_at;
 mod meta;
 mod util;
-mod vutils;
 mod xsv;
 mod xsv_reader;
 mod xsv_records;
@@ -18,7 +17,6 @@ use sqlite_loadable::{
     define_scalar_function, define_scalar_function_with_aux, define_table_function,
     define_virtual_table, FunctionFlags, Result,
 };
-
 
 #[sqlite_entrypoint]
 pub fn sqlite3_xsv_init(db: *mut sqlite3) -> Result<()> {

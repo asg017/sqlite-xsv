@@ -146,6 +146,39 @@ class TestXsv(unittest.TestCase):
       ]
     )
 
+    # test with custom column names
+    db.execute("""create virtual table students_psv_with_column_declarations using xsv(
+      filename='tests/data/students.psv', 
+      delimiter='|',
+      id text,
+      name text,
+      age int,
+      process real
+      );""").fetchall()
+    self.assertEqual(
+      execute_all("select rowid, * from students_psv_with_column_declarations"),
+       [
+        {'rowid': 1, 'age': 10, 'id': '1', 'name': 'alex', 'process': .9},
+        {'rowid': 2, 'age': 20, 'id': '2', 'name': 'brian', 'process': .7},
+        {'rowid': 3, 'age': 30, 'id': '3', 'name': 'craig', 'process': .3}
+      ]
+    )
+    db.execute("""create virtual table students_psv_with_column_declarations_not_enough using xsv(
+      filename='tests/data/students.psv', 
+      delimiter='|',
+      id text,
+      name text,
+      age int
+      );""").fetchall()
+    self.assertEqual(
+      execute_all("select rowid, * from students_psv_with_column_declarations_not_enough"),
+       [
+        {'rowid': 1, 'age': 10, 'id': '1', 'name': 'alex'},
+        {'rowid': 2, 'age': 20, 'id': '2', 'name': 'brian'},
+        {'rowid': 3, 'age': 30, 'id': '3', 'name': 'craig'}
+      ]
+    )
+
   def test_tsv(self):
     db.execute("create virtual table students_tsv using tsv(filename='tests/data/students.tsv');").fetchall()
     self.assertEqual(
@@ -180,6 +213,28 @@ class TestXsv(unittest.TestCase):
         {'cid': 3, 'name': 'process', 'type': '', 'hidden': 0}
       ]
     )
+
+    # testing when there's not enough columns in a row
+    db.execute("create virtual table not_enough_columns using csv(filename='tests/data/not_enough_columns.csv');").fetchall()
+    self.assertEqual(
+      execute_all("select * from not_enough_columns limit 1"),
+       [
+        {"a": '1', "b": '2', "c": '3'},
+      ]
+    )
+    with self.assertRaisesRegex(sqlite3.OperationalError, "Error while reading next row: CSV error: record 2 \(line: 3, byte: 12\): found record with 2 fields, but the previous record has 3 fields"):
+      execute_all("select * from not_enough_columns")
+    
+    # testing whe there's too many columns in a row
+    db.execute("create virtual table too_many_columns using csv(filename='tests/data/too_many_columns.csv');").fetchall()
+    self.assertEqual(
+      execute_all("select * from too_many_columns limit 1;"),
+       [
+        {"a": '1', "b": '2', "c": '3'},
+      ]
+    )
+    with self.assertRaisesRegex(sqlite3.OperationalError, "Error while reading next row: CSV error: record 2 \(line: 3, byte: 12\): found record with 4 fields, but the previous record has 3 fields"):
+      execute_all("select * from too_many_columns")
 
     self.exec_fails_with(
       "create virtual table x using csv();", 
@@ -223,7 +278,9 @@ class TestXsv(unittest.TestCase):
     #  "Error: no file extension detected for 'what'"
     #)
   def test_csv_reader(self):
-    execute_all("create virtual table students_reader using csv_reader(id integer, name text, age integer, progess real);")
+
+    # now with affinity!
+    execute_all("create virtual table students_reader using csv_reader(id integer, name, age integer, progess real);")
     self.assertEqual(
       execute_all("select * from students_reader('tests/data/student_files/a.csv')"),
       [
@@ -261,7 +318,7 @@ class TestXsv(unittest.TestCase):
         {'cid': 0, 'name': '_source', 'type': '', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 1}, 
         # TODO does "integer primary key" ever make sense?
         {'cid': 1, 'name': 'id',      'type': 'INTEGER', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 0}, 
-        {'cid': 2, 'name': 'name',    'type': 'TEXT', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 0}, 
+        {'cid': 2, 'name': 'name',    'type': '', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 0}, 
         {'cid': 3, 'name': 'age',     'type': 'INTEGER', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 0}, 
         {'cid': 4, 'name': 'progess', 'type': 'REAL', 'notnull': 0, 'dflt_value': None, 'pk': 0, 'hidden': 0}
       ]

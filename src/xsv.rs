@@ -1,14 +1,17 @@
 use sqlite_loadable::prelude::*;
-use sqlite_loadable::vtab_argparse::{parse_argument, Argument};
-use sqlite_loadable::{Result, Error, BestIndexError, api, table::{VTab, VTabCursor, VTabArguments, IndexInfo}};
+use sqlite_loadable::vtab_argparse::{parse_argument, Argument, ColumnDeclaration};
+use sqlite_loadable::{
+    api,
+    table::{IndexInfo, VTab, VTabArguments, VTabCursor},
+    BestIndexError, Error, Result,
+};
 
-use std::{io::Read, marker::PhantomData, mem, os::raw::c_int};
+use std::{io::Read, mem, os::raw::c_int};
 
 use crate::util::{
     get_csv_source_reader, parse_delimiter_config_value, parse_filename_config_value,
     parse_quote_config_value,
 };
-
 
 #[repr(C)]
 pub struct XsvTable {
@@ -18,6 +21,7 @@ pub struct XsvTable {
     path: String,
     delimiter: u8,
     quote: u8,
+    declared_columns: Option<Vec<ColumnDeclaration>>,
 }
 impl XsvTable {
     fn reader(&self) -> Result<csv::Reader<Box<dyn Read>>> {
@@ -28,30 +32,53 @@ impl XsvTable {
             .quote(self.quote)
             .from_reader(source_reader))
     }
-    fn schema_from_reader(&self) -> Result<String> {
-        let mut reader = self.reader()?;
-        let mut sql = String::from("create table x(");
-        let headers = reader
-            .headers()
-            .map_err(|_| Error::new_message("Error: invalid UTF8 in headers of CSV"))?;
-        let mut it = headers.iter().peekable();
-
-        while let Some(header) = it.next() {
-            sql.push('"');
-            sql.push_str(header);
-            sql.push('"');
-            if it.peek().is_some() {
-                sql.push(',');
+    fn schema_from_reader(
+        &self,
+        supplied_columns: Option<Vec<ColumnDeclaration>>,
+    ) -> Result<String> {
+        return match supplied_columns {
+            // if supplied, make the CREATE statement from those names
+            Some(columns) => {
+                let mut sql = String::from("create table x(");
+                let mut it = columns.iter().peekable();
+                while let Some(column) = it.next() {
+                    sql.push_str(column.vtab_declaration().as_str());
+                    if it.peek().is_some() {
+                        sql.push(',');
+                    }
+                }
+                sql.push(')');
+                Ok(sql)
             }
-        }
 
-        sql.push(')');
-        Ok(sql)
+            // if no columns were provided, then sniff the headers from the CSV
+            // and compute from there
+            None => {
+                let mut reader = self.reader()?;
+                let mut sql = String::from("create table x(");
+                let headers = reader
+                    .headers()
+                    .map_err(|_| Error::new_message("Error: invalid UTF8 in headers of CSV"))?;
+                let mut it = headers.iter().peekable();
+
+                while let Some(header) = it.next() {
+                    sql.push('"');
+                    sql.push_str(header);
+                    sql.push('"');
+                    if it.peek().is_some() {
+                        sql.push(',');
+                    }
+                }
+
+                sql.push(')');
+                Ok(sql)
+            }
+        };
     }
 }
 impl<'vtab> VTab<'vtab> for XsvTable {
     type Aux = u8;
-    type Cursor = XsvCursor<'vtab>;
+    type Cursor = XsvCursor;
 
     fn create(
         db: *mut sqlite3,
@@ -65,16 +92,17 @@ impl<'vtab> VTab<'vtab> for XsvTable {
         aux: Option<&Self::Aux>,
         args: VTabArguments,
     ) -> Result<(String, XsvTable)> {
-        let arguments = parse_xsv_arguments(db, args.arguments, aux.map(|a| a.to_owned()))?;
+        let arguments = parse_xsv_arguments(db, args.arguments.clone(), aux.map(|a| a.to_owned()))?;
         let vtab = XsvTable {
             base: unsafe { mem::zeroed() },
             db,
             path: arguments.filename,
             delimiter: arguments.delimiter,
             quote: arguments.quote,
+            declared_columns: arguments.columns.clone(),
         };
 
-        Ok((vtab.schema_from_reader()?, vtab))
+        Ok((vtab.schema_from_reader(arguments.columns)?, vtab))
     }
     fn destroy(&self) -> Result<()> {
         Ok(())
@@ -89,37 +117,37 @@ impl<'vtab> VTab<'vtab> for XsvTable {
         Ok(())
     }
 
-    fn open(&mut self) -> Result<XsvCursor<'_>> {
+    fn open(&mut self) -> Result<XsvCursor> {
         //XsvCursor::new(&self.path, self.delimiter, self.quote)
         XsvCursor::new(self)
     }
 }
 
 #[repr(C)]
-pub struct XsvCursor<'vtab> {
+pub struct XsvCursor {
     /// Base class. Must be first
     base: sqlite3_vtab_cursor,
     reader: csv::Reader<Box<dyn Read>>,
     record: csv::StringRecord,
     rowid: i64,
     eof: bool,
-    phantom: PhantomData<&'vtab XsvTable>,
+    declared_columns: Option<Vec<ColumnDeclaration>>,
 }
-impl XsvCursor<'_> {
-    fn new<'vtab>(table: &XsvTable) -> Result<XsvCursor<'vtab>> {
+impl XsvCursor {
+    fn new(table: &XsvTable) -> Result<XsvCursor> {
         let mut cursor = XsvCursor {
             base: unsafe { mem::zeroed() },
             reader: table.reader()?,
             rowid: 0,
             record: csv::StringRecord::new(),
             eof: false,
-            phantom: PhantomData,
+            declared_columns: table.declared_columns.clone(),
         };
         cursor.next().map(|_| cursor)
     }
 }
 
-impl VTabCursor for XsvCursor<'_> {
+impl VTabCursor for XsvCursor {
     fn filter(
         &mut self,
         _idx_num: c_int,
@@ -141,7 +169,7 @@ impl VTabCursor for XsvCursor<'_> {
                     "Error: UTF8 error while reading next row",
                 )),
                 _ => Err(Error::new_message(
-                    "Error: Unknown error while reading next row",
+                    format!("Error while reading next row: {}", err).as_str(),
                 )),
             },
         }
@@ -154,12 +182,15 @@ impl VTabCursor for XsvCursor<'_> {
     fn column(&self, context: *mut sqlite3_context, i: c_int) -> Result<()> {
         let i = usize::try_from(i)
             .map_err(|_| Error::new_message(format!("what the fuck {}", i).as_str()))?;
-        self.record.get(i);
         let s = &self
             .record
             .get(i)
             .ok_or_else(|| Error::new_message(format!("wut {}", i).as_str()))?;
-        api::result_text(context, s)?;
+        match self.declared_columns.as_ref().and_then(|c| c.get(i)) {
+            Some(column) => column.affinity().result_text(context, s)?,
+            None => api::result_text(context, s)?,
+        }
+
         Ok(())
     }
 
@@ -173,6 +204,7 @@ struct XsvArguments {
     filename: String,
     delimiter: u8,
     quote: u8,
+    columns: Option<Vec<ColumnDeclaration>>,
 }
 
 fn parse_xsv_arguments(
@@ -183,10 +215,11 @@ fn parse_xsv_arguments(
     let mut filename: Option<String> = None;
     let mut delimiter = initial_delimiter;
     let mut quote = b'"';
+    let mut columns = vec![];
     for arg in arguments {
         match parse_argument(arg.as_str()) {
             Ok(arg) => match arg {
-                Argument::Column(_) => {}
+                Argument::Column(column) => columns.push(column),
                 Argument::Config(config) => match config.key.as_str() {
                     "filename" => {
                         filename = Some(parse_filename_config_value(db, config.value)?);
@@ -207,10 +240,16 @@ fn parse_xsv_arguments(
     let delimiter = delimiter.ok_or_else(|| {
         Error::new_message("no delimiter given. Specify a delimiter to use with 'delimiter=\"\t\"'")
     })?;
+    let columns = if !columns.is_empty() {
+        Some(columns)
+    } else {
+        None
+    };
     Ok(XsvArguments {
         filename,
         delimiter,
         quote,
+        columns,
     })
 }
 
@@ -230,6 +269,7 @@ mod tests {
                 filename: "a.csv".to_string(),
                 delimiter: b',',
                 quote: b'"',
+                columns: None,
             })
         );
     }
@@ -238,13 +278,76 @@ mod tests {
         assert_eq!(
             parse_xsv_arguments(
                 std::ptr::null_mut(),
-                vec!["filename='a.csv'".to_string(), "delimiter='|'".to_string()],
+                vec!["filename='a.csv'".to_string()],
+                Some(b',')
+            ),
+            Ok(XsvArguments {
+                filename: "a.csv".to_string(),
+                delimiter: b',',
+                quote: b'"',
+                columns: None,
+            })
+        );
+        assert_eq!(
+            parse_xsv_arguments(
+                std::ptr::null_mut(),
+                vec![
+                    "filename='a.csv'".to_string(),
+                    "a int".to_string(),
+                    "b text".to_string()
+                ],
+                Some(b',')
+            ),
+            Ok(XsvArguments {
+                filename: "a.csv".to_string(),
+                delimiter: b',',
+                quote: b'"',
+                columns: Some(vec![
+                    ColumnDeclaration {
+                        name: "a".to_string(),
+                        declared_type: Some("int".to_string()),
+                        constraints: None
+                    },
+                    ColumnDeclaration {
+                        name: "b".to_string(),
+                        declared_type: Some("text".to_string()),
+                        constraints: None
+                    }
+                ]),
+            })
+        );
+        assert_eq!(
+            parse_xsv_arguments(
+                std::ptr::null_mut(),
+                vec![
+                    "filename='a.csv'".to_string(),
+                    "delimiter='|'".to_string(),
+                    "quote='x'".to_string()
+                ],
                 None
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
                 delimiter: b'|',
-                quote: b'"',
+                quote: b'x',
+                columns: None,
+            })
+        );
+        assert_eq!(
+            parse_xsv_arguments(
+                std::ptr::null_mut(),
+                vec![
+                    "filename='a.csv'".to_string(),
+                    "delimiter='|'".to_string(),
+                    "quote='\0'".to_string(),
+                ],
+                None
+            ),
+            Ok(XsvArguments {
+                filename: "a.csv".to_string(),
+                delimiter: b'|',
+                quote: b'\0',
+                columns: None,
             })
         );
         assert_eq!(
@@ -254,7 +357,7 @@ mod tests {
                 None
             ),
             Err(Error::new(ErrorKind::Message(
-                "empty string, 1 character required".to_string()
+                "delimiter must have at least 1 character".to_string()
             )))
         );
         assert_eq!(
@@ -267,6 +370,7 @@ mod tests {
                 filename: "a.csv".to_string(),
                 delimiter: b'\t',
                 quote: b'"',
+                columns: None,
             })
         );
         assert_eq!(
@@ -276,7 +380,7 @@ mod tests {
                 None
             ),
             Err(Error::new(ErrorKind::Message(
-                "Invalid delimiter, must be 1 character long (8 bits)".to_string()
+                "delimiter can only be 1 character long".to_string()
             )))
         );
     }
