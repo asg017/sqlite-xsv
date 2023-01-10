@@ -3,10 +3,10 @@
 - [ ] `header=no` support
 - [ ] `zstd` support?
 
-- [ ] when CSV more headers than column limit, give descriptive error message
 - [ ] `data="..."` support
 - [ ] `data=:param`
 - [ ] `filename=:path` support
+- [ ] when CSV more headers than column limit, give descriptive error message
 - [ ] more reader parameters
   - [ ] `sniff="filename.csv"`
   - [ ] `schema="table_or_view"`

@@ -10,7 +10,7 @@ use std::{io::Read, mem, os::raw::c_int};
 
 use crate::util::{
     get_csv_source_reader, parse_delimiter_config_value, parse_filename_config_value,
-    parse_quote_config_value,
+    parse_header_config_value, parse_quote_config_value,
 };
 
 #[repr(C)]
@@ -19,6 +19,7 @@ pub struct XsvTable {
     base: sqlite3_vtab,
     db: *mut sqlite3,
     path: String,
+    header: bool,
     delimiter: u8,
     quote: u8,
     declared_columns: Option<Vec<ColumnDeclaration>>,
@@ -28,15 +29,13 @@ impl XsvTable {
         let source_reader = get_csv_source_reader(&self.path)?;
 
         Ok(csv::ReaderBuilder::new()
+            .has_headers(self.header)
             .delimiter(self.delimiter)
             .quote(self.quote)
             .from_reader(source_reader))
     }
-    fn schema_from_reader(
-        &self,
-        supplied_columns: Option<Vec<ColumnDeclaration>>,
-    ) -> Result<String> {
-        return match supplied_columns {
+    fn schema_from_reader(&self) -> Result<String> {
+        return match &self.declared_columns {
             // if supplied, make the CREATE statement from those names
             Some(columns) => {
                 let mut sql = String::from("create table x(");
@@ -52,22 +51,28 @@ impl XsvTable {
             }
 
             // if no columns were provided, then sniff the headers from the CSV
-            // and compute from there
             None => {
                 let mut reader = self.reader()?;
                 let mut sql = String::from("create table x(");
+
                 let headers = reader
                     .headers()
                     .map_err(|_| Error::new_message("Error: invalid UTF8 in headers of CSV"))?;
                 let mut it = headers.iter().peekable();
 
+                let mut ci = 1;
                 while let Some(header) = it.next() {
-                    sql.push('"');
-                    sql.push_str(header);
-                    sql.push('"');
+                    if self.header {
+                        sql.push('"');
+                        sql.push_str(header);
+                        sql.push('"');
+                    } else {
+                        sql.push_str(format!("c{}", ci).as_str());
+                    }
                     if it.peek().is_some() {
                         sql.push(',');
                     }
+                    ci += 1;
                 }
 
                 sql.push(')');
@@ -92,17 +97,18 @@ impl<'vtab> VTab<'vtab> for XsvTable {
         aux: Option<&Self::Aux>,
         args: VTabArguments,
     ) -> Result<(String, XsvTable)> {
-        let arguments = parse_xsv_arguments(db, args.arguments.clone(), aux.map(|a| a.to_owned()))?;
+        let arguments = parse_xsv_arguments(db, args.arguments, aux.map(|a| a.to_owned()))?;
         let vtab = XsvTable {
             base: unsafe { mem::zeroed() },
             db,
             path: arguments.filename,
+            header: arguments.header,
             delimiter: arguments.delimiter,
             quote: arguments.quote,
-            declared_columns: arguments.columns.clone(),
+            declared_columns: arguments.columns,
         };
 
-        Ok((vtab.schema_from_reader(arguments.columns)?, vtab))
+        Ok((vtab.schema_from_reader()?, vtab))
     }
     fn destroy(&self) -> Result<()> {
         Ok(())
@@ -202,6 +208,7 @@ impl VTabCursor for XsvCursor {
 #[derive(Debug, PartialEq)]
 struct XsvArguments {
     filename: String,
+    header: bool,
     delimiter: u8,
     quote: u8,
     columns: Option<Vec<ColumnDeclaration>>,
@@ -213,6 +220,7 @@ fn parse_xsv_arguments(
     initial_delimiter: Option<u8>,
 ) -> Result<XsvArguments> {
     let mut filename: Option<String> = None;
+    let mut header: bool = true;
     let mut delimiter = initial_delimiter;
     let mut quote = b'"';
     let mut columns = vec![];
@@ -223,6 +231,9 @@ fn parse_xsv_arguments(
                 Argument::Config(config) => match config.key.as_str() {
                     "filename" => {
                         filename = Some(parse_filename_config_value(db, config.value)?);
+                    }
+                    "header" => {
+                        header = parse_header_config_value(config.value)?;
                     }
                     "delimiter" => {
                         delimiter = Some(parse_delimiter_config_value(config.value)?);
@@ -247,6 +258,7 @@ fn parse_xsv_arguments(
     };
     Ok(XsvArguments {
         filename,
+        header,
         delimiter,
         quote,
         columns,
@@ -267,6 +279,7 @@ mod tests {
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
+                header: true,
                 delimiter: b',',
                 quote: b'"',
                 columns: None,
@@ -283,6 +296,7 @@ mod tests {
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
+                header: true,
                 delimiter: b',',
                 quote: b'"',
                 columns: None,
@@ -300,6 +314,7 @@ mod tests {
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
+                header: true,
                 delimiter: b',',
                 quote: b'"',
                 columns: Some(vec![
@@ -328,6 +343,7 @@ mod tests {
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
+                header: true,
                 delimiter: b'|',
                 quote: b'x',
                 columns: None,
@@ -345,6 +361,7 @@ mod tests {
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
+                header: true,
                 delimiter: b'|',
                 quote: b'\0',
                 columns: None,
@@ -368,6 +385,7 @@ mod tests {
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
+                header: true,
                 delimiter: b'\t',
                 quote: b'"',
                 columns: None,

@@ -179,6 +179,46 @@ class TestXsv(unittest.TestCase):
       ]
     )
 
+  def test_xsv_headers(self):
+    # header work
+    db.execute("create virtual table students_no_header using xsv(filename='tests/data/students_no_header.csv', delimiter=',', header='off');").fetchall()
+    self.assertEqual(
+      execute_all("select rowid, * from students_no_header"),
+       [
+        {'rowid': 1, 'c1': '11', 'c2': 'alex', 'c3': '10', 'c4': '.9'},
+        {'rowid': 2, 'c1': '12', 'c2': 'brian', 'c3': '20', 'c4': '.7'},
+        {'rowid': 3, 'c1': '13', 'c2': 'craig', 'c3': '30', 'c4': '.3'}
+      ]
+    )
+
+    db.execute("create virtual table students_header_yes using xsv(filename='tests/data/students.csv', delimiter=',', header=yes);").fetchall()
+    self.assertEqual(
+      execute_all("select rowid, * from students_header_yes"),
+       [
+        {'rowid': 1, 'id': '1', 'name': 'alex', 'age': '10', 'process': '.9'},
+        {'rowid': 2, 'id': '2', 'name': 'brian', 'age': '20', 'process': '.7'},
+        {'rowid': 3, 'id': '3', 'name': 'craig', 'age': '30', 'process': '.3'}
+      ]
+    )
+
+    db.execute("""create virtual table students_no_header_with_cols using xsv(
+      filename='tests/data/students_no_header.csv', 
+      delimiter=',', 
+      header='off', 
+      id text,
+      name text,
+      age int,
+      process real
+      );""").fetchall()
+    self.assertEqual(
+      execute_all("select rowid, * from students_no_header_with_cols"),
+       [
+        {'rowid': 1, 'id': '11', 'name': 'alex', 'age': 10, 'process': .9},
+        {'rowid': 2, 'id': '12', 'name': 'brian', 'age': 20, 'process': .7},
+        {'rowid': 3, 'id': '13', 'name': 'craig', 'age': 30, 'process': .3}
+      ]
+    )
+
   def test_tsv(self):
     db.execute("create virtual table students_tsv using tsv(filename='tests/data/students.tsv');").fetchall()
     self.assertEqual(
@@ -344,7 +384,16 @@ class TestXsv(unittest.TestCase):
         {'age': 30, 'id': 3, 'name': 'andres', 'progess': 0.7}
       ]
     )
-  
+  def test_xsv_reader_header(self):
+    execute_all("create virtual table xsv_reader_no_header using xsv_reader(delimiter=',', header=no, id, name text, age integer, progess real);")
+    self.assertEqual(
+      execute_all("select rowid, * from xsv_reader_no_header('tests/data/students_no_header.csv')"),
+      [
+        {'rowid': 1, 'id': '11', 'name': 'alex', 'age': 10, 'progess': .9},
+        {'rowid': 2, 'id': '12', 'name': 'brian', 'age': 20, 'progess': .7},
+        {'rowid': 3, 'id': '13', 'name': 'craig', 'age': 30, 'progess': .3}
+      ]
+    )
 class TestCoverage(unittest.TestCase):                                      
   def test_coverage(self):                                                      
     test_methods = [method for method in dir(TestXsv) if method.startswith('test_')]

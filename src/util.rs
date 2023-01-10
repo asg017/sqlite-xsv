@@ -120,3 +120,19 @@ pub fn parse_filename_config_value(_db: *mut sqlite3, value: ConfigOptionValue) 
         )),
     }
 }
+
+pub fn parse_header_config_value(value: ConfigOptionValue) -> Result<bool> {
+    match value {
+        ConfigOptionValue::Quoted(value) | ConfigOptionValue::Bareword(value) => {
+            match value.to_lowercase().as_str() {
+                "yes" | "y" | "on" | "true" | "1" => Ok(true),
+                "no" | "n" | "off" | "false" | "0" => Ok(false),
+                _ => Err(Error::new_message(
+                    format!("Unknown header value '{}'", value).as_str(),
+                )),
+            }
+        }
+
+        _ => Err(Error::new_message("Unknown header value")),
+    }
+}

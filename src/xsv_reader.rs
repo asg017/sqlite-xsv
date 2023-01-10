@@ -1,13 +1,22 @@
 use sqlite_loadable::prelude::*;
-use sqlite_loadable::{Result, Error, BestIndexError, api, vtab_argparse::*, table::{VTab, VTabCursor, VTabArguments, IndexInfo}};
+use sqlite_loadable::{
+    api,
+    table::{IndexInfo, VTab, VTabArguments, VTabCursor},
+    vtab_argparse::*,
+    BestIndexError, Error, Result,
+};
 use std::{io::Read, marker::PhantomData, mem, os::raw::c_int};
 
-use crate::util::{get_csv_source_reader, parse_delimiter_config_value, parse_quote_config_value};
+use crate::util::{
+    get_csv_source_reader, parse_delimiter_config_value, parse_header_config_value,
+    parse_quote_config_value,
+};
 
 #[repr(C)]
 pub struct XsvReaderTable {
     /// must be first
     base: sqlite3_vtab,
+    header: bool,
     delimiter: u8,
     quote: u8,
     columns: Vec<ColumnDeclaration>,
@@ -34,6 +43,7 @@ impl<'vtab> VTab<'vtab> for XsvReaderTable {
 
         let vtab = XsvReaderTable {
             base,
+            header: arguments.header,
             delimiter: arguments.delimiter,
             quote: arguments.quote,
             columns: arguments.columns,
@@ -75,7 +85,7 @@ impl<'vtab> VTab<'vtab> for XsvReaderTable {
     }
 
     fn open(&mut self) -> Result<XsvReaderCursor<'_>> {
-        XsvReaderCursor::new(self.delimiter, self.quote, &self.columns)
+        XsvReaderCursor::new(self.delimiter, self.quote, &self.columns, self.header)
     }
 }
 
@@ -83,6 +93,7 @@ impl<'vtab> VTab<'vtab> for XsvReaderTable {
 pub struct XsvReaderCursor<'vtab> {
     /// Base class. Must be first
     base: sqlite3_vtab_cursor,
+    header: bool,
     delimiter: u8,
     quote: u8,
     columns: &'vtab Vec<ColumnDeclaration>,
@@ -94,12 +105,18 @@ pub struct XsvReaderCursor<'vtab> {
     phantom: PhantomData<&'vtab XsvReaderTable>,
 }
 impl XsvReaderCursor<'_> {
-    fn new(delimiter: u8, quote: u8, columns: &Vec<ColumnDeclaration>) -> Result<XsvReaderCursor> {
+    fn new(
+        delimiter: u8,
+        quote: u8,
+        columns: &Vec<ColumnDeclaration>,
+        header: bool,
+    ) -> Result<XsvReaderCursor> {
         let base: sqlite3_vtab_cursor = unsafe { mem::zeroed() };
         let record = csv::StringRecord::new();
 
         let cursor = XsvReaderCursor {
             base,
+            header,
             delimiter,
             quote,
             columns,
@@ -121,15 +138,15 @@ impl VTabCursor for XsvReaderCursor<'_> {
         _idx_str: Option<&str>,
         values: &[*mut sqlite3_value],
     ) -> Result<()> {
-        let path = api::value_text(
-            values
-                .get(0)
-                .ok_or_else(|| Error::new_message("Internal error: expected argv[0] in xFilter"))?
-,
-        )?;
+        let path =
+            api::value_text(values.get(0).ok_or_else(|| {
+                Error::new_message("Internal error: expected argv[0] in xFilter")
+            })?)?;
         let r = get_csv_source_reader(path)?;
         let reader = csv::ReaderBuilder::new()
+            .has_headers(self.header)
             .delimiter(self.delimiter)
+            .quote(self.quote)
             .from_reader(r);
         self.path = Some(path.to_owned());
         self.current_reader = Some(reader);
@@ -182,7 +199,6 @@ impl VTabCursor for XsvReaderCursor<'_> {
             .record
             .get(i)
             .ok_or_else(|| Error::new_message(format!("wut {}", i).as_str()))?;
-
         column.affinity().result_text(context, s)?;
         Ok(())
     }
@@ -194,6 +210,7 @@ impl VTabCursor for XsvReaderCursor<'_> {
 
 struct ReaderArguments {
     columns: Vec<ColumnDeclaration>,
+    header: bool,
     delimiter: u8,
     quote: u8,
 }
@@ -205,6 +222,7 @@ fn parse_reader_arguments(
     let mut columns = vec![];
     let mut delimiter = initial_delimiter;
     let mut quote = b'"';
+    let mut header = true;
     for arg in arguments {
         match parse_argument(arg.as_str()) {
             Ok(arg) => match arg {
@@ -218,6 +236,9 @@ fn parse_reader_arguments(
                     "quote" => {
                         quote = parse_quote_config_value(config.value)?;
                     }
+                    "header" => {
+                        header = parse_header_config_value(config.value)?;
+                    }
                     _ => (),
                 },
             },
@@ -230,6 +251,7 @@ fn parse_reader_arguments(
 
     Ok(ReaderArguments {
         columns,
+        header,
         delimiter,
         quote,
     })

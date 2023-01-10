@@ -504,9 +504,9 @@ checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
 name = "sqlite-loadable"
-version = "0.0.4"
+version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f438ca793dfbb72e626237fad0e42e189c77cce644f97dff78b8694dd787ea5c"
+checksum = "a916b7bb8738eef189dea88731b619b80bf3f62b3acf05138fa43fbf8621cc94"
 dependencies = [
  "bitflags",
  "serde",
