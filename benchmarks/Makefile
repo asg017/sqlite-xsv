@@ -17,3 +17,6 @@ clean:
 	rm *.png
 
 .PHONY: all clean
+
+_data/totals.csv:
+	wget -O $@ 'https://github.com/datadesk/california-coronavirus-data/raw/master/latimes-place-totals.csv'
