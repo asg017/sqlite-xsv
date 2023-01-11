@@ -5,7 +5,12 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
+#[cfg(feature = "gzip_support")]
 use flate2::read::GzDecoder;
+
+#[cfg(feature = "zstd_support")]
+use zstd::stream::read::Decoder as ZstdDecoder;
+
 use sqlite_loadable::prelude::*;
 use sqlite_loadable::{vtab_argparse::ConfigOptionValue, Error, Result};
 
@@ -25,6 +30,19 @@ pub fn get_csv_source_reader(path: &str) -> Result<Box<dyn Read>> {
                     )
                 })?);
                 let x = BufReader::new(GzDecoder::new(r));
+                Ok(Box::new(x))
+            }
+            #[cfg(feature = "zstd_support")]
+            "zst" => {
+                let r = std::io::BufReader::new(File::open(path).map_err(|_| {
+                    Error::new_message(
+                        format!("Error: filename '{}' does not exist. ", path).as_str(),
+                    )
+                })?);
+                let x = BufReader::new(
+                    ZstdDecoder::new(r)
+                        .map_err(|_| Error::new_message("error reading file as zstd"))?,
+                );
                 Ok(Box::new(x))
             }
             _ => Ok(Box::new(File::open(path).map_err(|_| {

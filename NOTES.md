@@ -1,8 +1,5 @@
 # TODO
 
-- [ ] `header=no` support
-- [ ] `zstd` support?
-
 - [ ] `data="..."` support
 - [ ] `data=:param`
 - [ ] `filename=:path` support

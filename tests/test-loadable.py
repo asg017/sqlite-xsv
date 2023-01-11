@@ -124,6 +124,18 @@ class TestXsv(unittest.TestCase):
         {'rowid': 3, 'age': '30', 'id': '3', 'name': 'craig', 'process': '.3'}
       ]
     )
+  
+  def test_csv_zstd(self):
+    db.execute("create virtual table students_zstd using csv(filename='tests/data/students.csv.zst');").fetchall()
+    self.assertEqual(
+      execute_all("select rowid, * from students_zstd"),
+       [
+        {'rowid': 1, 'age': '10', 'id': '1', 'name': 'alex', 'process': '.9'},
+        {'rowid': 2, 'age': '20', 'id': '2', 'name': 'brian', 'process': '.7'},
+        {'rowid': 3, 'age': '30', 'id': '3', 'name': 'craig', 'process': '.3'}
+      ]
+    )
+
   def test_xsv(self):
     db.execute("create virtual table students_psv using xsv(filename='tests/data/students.psv', delimiter='|');").fetchall()
     self.assertEqual(
