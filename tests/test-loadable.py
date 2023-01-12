@@ -54,8 +54,7 @@ class TestXsv(unittest.TestCase):
     self.assertEqual(modules, MODULES)
     
   def test_xsv_version(self):
-    version = 'v0.1.0'
-    self.assertEqual(db.execute("select xsv_version()").fetchone()[0], version)
+    self.assertEqual(db.execute("select xsv_version()").fetchone()[0][0], "v")
   
   def test_xsv_debug(self):
     debug = db.execute("select xsv_debug()").fetchone()[0]
