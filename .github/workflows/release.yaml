@@ -24,7 +24,6 @@ jobs:
         with:
           toolchain: stable
       - run: make release
-      - run: make test
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -48,7 +47,6 @@ jobs:
         with:
           toolchain: stable
       - run: make release
-      - run: make test
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -72,7 +70,6 @@ jobs:
         with:
           toolchain: stable
       - run: make release
-      - run: make test
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:

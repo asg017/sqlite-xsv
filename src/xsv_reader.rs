@@ -1,3 +1,4 @@
+use sqlite_loadable::api::ValueType;
 use sqlite_loadable::prelude::*;
 use sqlite_loadable::{
     api,
@@ -138,17 +139,23 @@ impl VTabCursor for XsvReaderCursor<'_> {
         _idx_str: Option<&str>,
         values: &[*mut sqlite3_value],
     ) -> Result<()> {
-        let path =
-            api::value_text(values.get(0).ok_or_else(|| {
-                Error::new_message("Internal error: expected argv[0] in xFilter")
-            })?)?;
-        let r = get_csv_source_reader(path)?;
+        let input_arg = values
+            .get(0)
+            .ok_or_else(|| Error::new_message("Internal error: expected argv[0] in xFilter"))?;
+
+        let r = match api::value_type(input_arg) {
+            ValueType::Blob => Box::new(std::io::Cursor::new(api::value_blob(input_arg))),
+            _ => {
+                let path = api::value_text(input_arg)?;
+                self.path = Some(path.to_owned());
+                get_csv_source_reader(path)?
+            }
+        };
         let reader = csv::ReaderBuilder::new()
             .has_headers(self.header)
             .delimiter(self.delimiter)
             .quote(self.quote)
             .from_reader(r);
-        self.path = Some(path.to_owned());
         self.current_reader = Some(reader);
         self.next()
     }

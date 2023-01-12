@@ -3,11 +3,15 @@
 A fast and performant SQLite extension for CSV files, written in Rust! Based on [`sqlite-loadable-rs`](https://github.com/asg017/sqlite-loadable-rs) and the wonderful [csv crate](https://github.com/BurntSushi/rust-csv).
 
 - Query CSVs, TSVs, and other-SVs as SQLite virtual tables
-- The "reader" interface lets you query CSVs from other data sources (URLs with [`sqlite-xsv`](https://github.com/asg017/sqlite-xsv))
+- The "reader" interface lets you query CSVs from other data sources, such as [`sqlite-http`](https://github.com/asg017/sqlite-http)
 - Builtin support for querying CSVs with gzip or zstd compression
+
+See [_Introducing sqlite-loadable-rs: A framework for building SQLite Extensions in Rust_](https://observablehq.com/@asg017/introducing-sqlite-xsv) (Jan 2023) for more details!
 
 > **Note**
 > Nothing to do with [xsv](https://github.com/BurntSushi/xsv), but is based on the same csv crate. This is named `sqlite-xsv` to distinguish between the official [SQLite CSV Virtual table](https://www.sqlite.org/csv.html) and the [`sqlean` vsv extension](https://github.com/nalgeon/sqlean/blob/main/docs/vsv.md).
+
+![](./benchmarks/count.png)
 
 ## Usage
 
@@ -17,31 +21,80 @@ A fast and performant SQLite extension for CSV files, written in Rust! Based on 
 create virtual table temp.students using csv(
   filename="students.csv"
 );
+
+select * from temp.students;
+/*
+┌────┬───────┬─────┬─────────┐
+│ id │ name  │ age │ process │
+├────┼───────┼─────┼─────────┤
+│ 1  │ alex  │ 10  │ .9      │
+│ 2  │ brian │ 20  │ .7      │
+│ 3  │ craig │ 30  │ .3      │
+└────┴───────┴─────┴─────────┘
+*/
 ```
 
-Query TSVs or other
-
-Provide a schema for CSVs that lack headers.
+Provide a schema for CSVs that lack headers, or to provide types on columns.
 
 ```sql
-create virtual table xxx using csv(
-  filename="",
+create virtual table students_no_header using csv(
+  filename="students_no_header.csv",
+  header=false,
   id text,
   name text,
   age int,
-
 );
+
+select * from students_no_header;
+
 ```
 
-Query CSVs from HTTP endpoints, with the reader API and [`sqlite-xsv`](https://github.com/asg017/sqlite-xsv). Note: Only works for CSVs that work in memory, for now.
+Use the [`csv_reader`](/docs.md#xsv_reader) API and the `fsdir()` function in the SQLite CLI to read from several CSV files in one query.
+
+```sql
+create virtual table temp.students_reader using csv_reader(
+  id integer,
+  name text,
+  age integer,
+  progess real
+);
+
+with files as (
+   select name as path
+   from fsdir('tests/data/student_files')
+
+)
+select
+  files.path,
+  students.*
+from files
+join students_reader(files.path) as students
+where files.path like '%.csv';
+/*
+┌────────────────────────────────┬────┬───────────┬─────┬─────────┐
+│              path              │ id │   name    │ age │ progess │
+├────────────────────────────────┼────┼───────────┼─────┼─────────┤
+│ tests/data/student_files/a.csv │ 1  │ alex      │ 10  │ 0.9     │
+│ tests/data/student_files/a.csv │ 2  │ adrian    │ 20  │ 0.8     │
+│ tests/data/student_files/a.csv │ 3  │ andres    │ 30  │ 0.7     │
+│ tests/data/student_files/c.csv │ 1  │ craig     │ 70  │ 0.4     │
+│ tests/data/student_files/c.csv │ 2  │ catherine │ 90  │ 0.5     │
+│ tests/data/student_files/c.csv │ 3  │ coin      │ 80  │ 0.6     │
+│ tests/data/student_files/b.csv │ 1  │ brian     │ 60  │ 0.1     │
+│ tests/data/student_files/b.csv │ 2  │ beto      │ 50  │ 0.2     │
+│ tests/data/student_files/b.csv │ 3  │ brandy    │ 40  │ 0.3     │
+└────────────────────────────────┴────┴───────────┴─────┴─────────┘
+*/
+```
+
+Query CSVs from HTTP endpoints, with the reader API and [`sqlite-http`](https://github.com/asg017/sqlite-http). Note: Only works for CSVs that work in memory, for now.
 
 ```sql
 .load ./xsv0
--- Reading a CSV from the wonderful LA Times COVID proejct
+-- Reading a CSV from the wonderful LA Times COVID project
 -- https://github.com/datadesk/california-coronavirus-data
 
-
-create virtual table temp.cdph_age_reader using csv(
+create virtual table temp.cdph_age_reader using csv_reader(
   date,
   age text,
   confirmed_cases_total int,
@@ -63,7 +116,15 @@ from cdph_age
 limit 5;
 
 /*
-
+┌────────────┬───────┬───────────────────────┬─────────────────────────┬──────────────┬────────────────┐
+│    date    │  age  │ confirmed_cases_total │ confirmed_cases_percent │ deaths_total │ deaths_percent │
+├────────────┼───────┼───────────────────────┼─────────────────────────┼──────────────┼────────────────┤
+│ 2023-01-03 │ 0-4   │ 371691                │ 0.034                   │ 32           │ 0.0            │
+│ 2023-01-03 │ 80+   │ 292252                │ 0.027                   │ 37038        │ 0.378          │
+│ 2023-01-03 │ 18–34 │ 3416056               │ 0.312                   │ 1655         │ 0.017          │
+│ 2023-01-03 │ 35–49 │ 2530259               │ 0.231                   │ 6135         │ 0.063          │
+│ 2023-01-03 │ 50–59 │ 1379087               │ 0.126                   │ 10892        │ 0.111          │
+└────────────┴───────┴───────────────────────┴─────────────────────────┴──────────────┴────────────────┘
 */
 ```
 
@@ -116,63 +177,4 @@ console.log(db.prepare("select xsv_version()").get());
 // { 'xsv_version()': 'v0.0.1' }
 ```
 
-For [Datasette](https://datasette.io/), it is currently NOT recommended to load `sqlite-xsv` in public Datasette instances. This is because the SQL API
-
-### 1. The fastest SQLite CSV extension
-
-A benchmark that shows how fast `sqlite-xsv` is compared to other CSV tools, **for counting rows**
-
-![](./benchmarks/count.png)
-
-All while keeping a familiar SQL API!
-
-```sql
-create virtual table flights using csv(filename="benchmarks/_data/flights.csv");
-select year, quarter, month from flights limit 20;
-```
-
-`sqlite-xsv` and SQLite is still much slower at _analytical queries_ on top of CSVs, however.
-
-### 2. Several CSV utilities beyond single-file reads
-
-```sql
-select
-  csv_field_at(record, 0) as id,
-  csv_field_at(record, 1) as name
-from csv_records(readfile('students.csv'));
-```
-
-### 3. A CSV "reader" API
-
-Rarely do you ever have only 1 CSV with all your data. Often times you'll have an entire directory of CSVs with all the same schema. The `csv_reader` virtual table can handle this with ease!
-
-```sql
-create virtual table students_reader using csv_reader(id integer, name text, age integer, progess real);
-
-with files as (
-   select name as path
-   from fsdir('tests/data/student_files')
-
-)
-select
-  files.path,
-  students.*
-from files
-join students_reader(files.path) as students
-where files.path like '%.csv';
-/*
-┌────────────────────────────────┬────┬───────────┬─────┬─────────┐
-│              path              │ id │   name    │ age │ progess │
-├────────────────────────────────┼────┼───────────┼─────┼─────────┤
-│ tests/data/student_files/a.csv │ 1  │ alex      │ 10  │ 0.9     │
-│ tests/data/student_files/a.csv │ 2  │ adrian    │ 20  │ 0.8     │
-│ tests/data/student_files/a.csv │ 3  │ andres    │ 30  │ 0.7     │
-│ tests/data/student_files/c.csv │ 1  │ craig     │ 70  │ 0.4     │
-│ tests/data/student_files/c.csv │ 2  │ catherine │ 90  │ 0.5     │
-│ tests/data/student_files/c.csv │ 3  │ coin      │ 80  │ 0.6     │
-│ tests/data/student_files/b.csv │ 1  │ brian     │ 60  │ 0.1     │
-│ tests/data/student_files/b.csv │ 2  │ beto      │ 50  │ 0.2     │
-│ tests/data/student_files/b.csv │ 3  │ brandy    │ 40  │ 0.3     │
-└────────────────────────────────┴────┴───────────┴─────┴─────────┘
-*/
-```
+For [Datasette](https://datasette.io/), it is currently NOT recommended to load `sqlite-xsv` in public Datasette instances. This is because the SQL API reads files from the filesystem, which is dangerous on Datasette instances. This may be changed in future version of `sqlite-xsv.
