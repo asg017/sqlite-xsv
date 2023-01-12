@@ -32,23 +32,17 @@ def execute_all(sql, args=None):
   return list(map(lambda x: dict(x), results))
 
 FUNCTIONS = [
-  "csv_field_at",
-  "tsv_field_at",
   "xsv_debug",
-  "xsv_field_at",
   "xsv_version",
 ]
 
 MODULES = [
   "csv",
   "csv_reader",
-  "csv_records",
   "tsv",
   "tsv_reader",
-  "tsv_records",
   "xsv",
   "xsv_reader",
-  "xsv_records",
 ]
 class TestXsv(unittest.TestCase):
   def test_funcs(self):
@@ -67,49 +61,6 @@ class TestXsv(unittest.TestCase):
     debug = db.execute("select xsv_debug()").fetchone()[0]
     self.assertEqual(len(debug.splitlines()), 2)
 
-  def test_csv_field_at(self):
-    csv_field_at = lambda a, b: db.execute("select csv_field_at(?, ?)", [a,b]).fetchone()[0]
-    self.assertEqual(csv_field_at("a,b,c", 0), "a")
-    self.assertEqual(csv_field_at("a,b,c", 1), "b")
-    self.assertEqual(csv_field_at("a,b,c", 2), "c")
-    self.assertEqual(csv_field_at("a,b,c", 3), None)
-    #self.assertEqual(csv_field_at("a,b,c", -1), None)
-  
-  def test_tsv_field_at(self):
-    tsv_field_at = lambda a, b: db.execute("select tsv_field_at(?, ?)", [a,b]).fetchone()[0]
-    self.assertEqual(tsv_field_at("a\tb", 0), "a")
-  
-  def test_xsv_field_at(self):
-    xsv_field_at = lambda a, b, c: db.execute("select xsv_field_at(?, ?, ?)", [a,b, c]).fetchone()[0]
-    self.assertEqual(xsv_field_at("|", "a|b", 0), "a")
-  
-  def test_csv_records(self):
-    csv_records = lambda x: execute_all("select rowid, * from csv_records(?)", [x])
-    doc = ("a,b,c\n"
-      "x,y,z")
-    self.assertEqual(csv_records(doc), [
-      {"rowid": 0, "record": "a,b,c\n"},
-      {"rowid": 1, "record": "x,y,z\n"},
-    ])
-  
-  def test_tsv_records(self):
-    tsv_records = lambda x: execute_all("select rowid, * from tsv_records(?)", [x])
-    doc = ("a\tb\tc\n"
-      "x\ty\tz")
-    self.assertEqual(tsv_records(doc), [
-      {"rowid": 0, "record": "a\tb\tc\n"},
-      {"rowid": 1, "record": "x\ty\tz\n"},
-    ])
-  
-  def test_xsv_records(self):
-    xsv_records = lambda a, b: execute_all("select rowid, * from xsv_records(?, ?)", [a,b])
-    doc = ("a|b|c\n"
-      "x|y|z")
-    self.assertEqual(xsv_records("|", doc), [
-      {"rowid": 0, "record": "a|b|c\n"},
-      {"rowid": 1, "record": "x|y|z\n"},
-    ])
-  
   def exec_fails_with(self, sql, message, error=sqlite3.OperationalError):
     with self.assertRaisesRegex(error,message):
         execute_all(sql)

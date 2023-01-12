@@ -8,7 +8,7 @@ count.png: ./count/results.json Makefile
 		--redefine-file=highlight:json:<(echo '["./sqlite-xsv.sh"]') \
 		'--redefine=compareTo:./sqlite-xsv.sh' \
 		'--redefine=title:Count 1.1 millions rows in a 75MB CSV.' \
-		'--redefine=footer:sqlite-xsv version 0.0.1, ran on a 2019 Macbook, i5 processing and 8GB RAM' \
+		'--redefine=footer:sqlite-xsv version 0.0.1, ran on a Digital Ocean Droplet 8GB RAM, 4vCPUs' \
 		-o $@
 
 all: ./count.png 

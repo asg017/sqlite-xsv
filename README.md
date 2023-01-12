@@ -1,13 +1,122 @@
 # sqlite-xsv
 
-A fast and performant SQLite extension for CSVs, TSVs, and other-SVs, written in Rust! See [`sqlite-loadable-rs`](https://github.com/asg017/sqlite-loadable-rs), the framework that makes this extension possible.
+A fast and performant SQLite extension for CSV files, written in Rust! Based on [`sqlite-loadable-rs`](https://github.com/asg017/sqlite-loadable-rs) and the wonderful [csv crate](https://github.com/BurntSushi/rust-csv).
+
+- Query CSVs, TSVs, and other-SVs as SQLite virtual tables
+- The "reader" interface lets you query CSVs from other data sources (URLs with [`sqlite-xsv`](https://github.com/asg017/sqlite-xsv))
+- Builtin support for querying CSVs with gzip or zstd compression
 
 > **Note**
-> Nothing to do with [xsv](https://github.com/BurntSushi/xsv), but is based on the same [Rust CSV crate](https://github.com/BurntSushi/rust-csv). This is named `sqlite-xsv` to distinguish between the official [SQLite CSV Virtual table](https://www.sqlite.org/csv.html) and the [`sqlean` vsv extension](https://github.com/nalgeon/sqlean/blob/main/docs/vsv.md).
+> Nothing to do with [xsv](https://github.com/BurntSushi/xsv), but is based on the same csv crate. This is named `sqlite-xsv` to distinguish between the official [SQLite CSV Virtual table](https://www.sqlite.org/csv.html) and the [`sqlean` vsv extension](https://github.com/nalgeon/sqlean/blob/main/docs/vsv.md).
 
-## WORK IN PROGRESS
+## Usage
 
-This extension isn't 100% complete yet, but hoping to release in the next 1-2 weeks! A sneak peek at what to expect:
+```sql
+.load ./xsv0
+
+create virtual table temp.students using csv(
+  filename="students.csv"
+);
+```
+
+Query TSVs or other
+
+Provide a schema for CSVs that lack headers.
+
+```sql
+create virtual table xxx using csv(
+  filename="",
+  id text,
+  name text,
+  age int,
+
+);
+```
+
+Query CSVs from HTTP endpoints, with the reader API and [`sqlite-xsv`](https://github.com/asg017/sqlite-xsv). Note: Only works for CSVs that work in memory, for now.
+
+```sql
+.load ./xsv0
+-- Reading a CSV from the wonderful LA Times COVID proejct
+-- https://github.com/datadesk/california-coronavirus-data
+
+
+create virtual table temp.cdph_age_reader using csv(
+  date,
+  age text,
+  confirmed_cases_total int,
+  confirmed_cases_percent float,
+  deaths_total int,
+  deaths_percent float
+);
+
+create table cdph_age as
+  select *
+  from temp.cdph_age_reader(
+    http_get_body(
+      'https://raw.githubusercontent.com/datadesk/california-coronavirus-data/master/cdph-age.csv'
+    )
+  );
+
+select *
+from cdph_age
+limit 5;
+
+/*
+
+*/
+```
+
+## Documentation
+
+See [`docs.md`](./docs.md) for a full API reference.
+
+## Installing
+
+The [Releases page](https://github.com/asg017/sqlite-xsv/releases) contains pre-built binaries for Linux amd64, MacOS amd64 (no arm yet), and Windows.
+
+### As a loadable extension
+
+If you want to use `sqlite-xsv` as a [Runtime-loadable extension](https://www.sqlite.org/loadext.html), Download the `xsv0.dylib` (for MacOS), `xsv0.so` (Linux), or `xsv0.dll` (Windows) file from a release and load it into your SQLite environment.
+
+> **Note:**
+> The `0` in the filename (`xsv0.dylib`/ `xsv0.so`/`xsv0.dll`) denotes the major version of `sqlite-xsv`. Currently `sqlite-xsv` is pre v1, so expect breaking changes in future versions.
+
+For example, if you are using the [SQLite CLI](https://www.sqlite.org/cli.html), you can load the library like so:
+
+```sql
+.load ./xsv0
+select xsv_version();
+-- v0.0.1
+```
+
+Or in Python, using the builtin [sqlite3 module](https://docs.python.org/3/library/sqlite3.html):
+
+```python
+import sqlite3
+
+con = sqlite3.connect(":memory:")
+
+con.enable_load_extension(True)
+con.load_extension("./xsv0")
+
+print(con.execute("select xsv_version()").fetchone())
+# ('v0.0.1',)
+```
+
+Or in Node.js using [better-sqlite3](https://github.com/WiseLibs/better-sqlite3):
+
+```javascript
+const Database = require("better-sqlite3");
+const db = new Database(":memory:");
+
+db.loadExtension("./xsv0");
+
+console.log(db.prepare("select xsv_version()").get());
+// { 'xsv_version()': 'v0.0.1' }
+```
+
+For [Datasette](https://datasette.io/), it is currently NOT recommended to load `sqlite-xsv` in public Datasette instances. This is because the SQL API
 
 ### 1. The fastest SQLite CSV extension
 

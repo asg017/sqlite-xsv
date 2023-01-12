@@ -1,10 +1,8 @@
 use ::csv::{ReaderBuilder, StringRecord};
 use sqlite_loadable::prelude::*;
-use sqlite_loadable::{
-    Error, Result, api
-};
+use sqlite_loadable::{api, Error, Result};
 
-pub fn xsv_field_at(
+fn _xsv_field_at(
     context: *mut sqlite3_context,
     values: &[*mut sqlite3_value],
     delimiter: &Option<u8>,
@@ -15,14 +13,12 @@ pub fn xsv_field_at(
             let record = api::value_text(
                 values
                     .get(0)
-                    .ok_or_else(|| Error::new_message("expected 2nd argument as record"))?
-,
+                    .ok_or_else(|| Error::new_message("expected 2nd argument as record"))?,
             )?;
             let index = api::value_int(
                 values
                     .get(1)
-                    .ok_or_else(|| Error::new_message("expected 3rd argument as index"))?
-,
+                    .ok_or_else(|| Error::new_message("expected 3rd argument as index"))?,
             );
             (delimiter.to_owned(), record, index)
         }
@@ -30,8 +26,7 @@ pub fn xsv_field_at(
             let delimiter = api::value_text(
                 values
                     .get(0)
-                    .ok_or_else(|| Error::new_message("expected 1st argument as delimiter"))?
-,
+                    .ok_or_else(|| Error::new_message("expected 1st argument as delimiter"))?,
             )?
             .as_bytes()
             .first()
@@ -39,14 +34,12 @@ pub fn xsv_field_at(
             let record = api::value_text(
                 values
                     .get(1)
-                    .ok_or_else(|| Error::new_message("expected 2nd argument as record"))?
-
+                    .ok_or_else(|| Error::new_message("expected 2nd argument as record"))?,
             )?;
             let index = api::value_int(
                 values
                     .get(2)
-                    .ok_or_else(|| Error::new_message("expected 3rd argument as index"))?
-
+                    .ok_or_else(|| Error::new_message("expected 3rd argument as index"))?,
             );
             (delimiter.to_owned(), record, index)
         }
@@ -66,10 +59,10 @@ pub fn xsv_field_at(
             if has_content {
                 match record.get(index) {
                     Some(field) => {
-                      api::result_text(context, field)?;
+                        api::result_text(context, field)?;
                     }
                     None => {
-                      api::result_null(context);
+                        api::result_null(context);
                     }
                 }
             } else {

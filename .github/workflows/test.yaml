@@ -23,12 +23,13 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: cargo build --release --verbose
+      - run: make loadable
+      - run: make test
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
           name: sqlite-xsv-ubuntu
-          path: target/release/libxsv0.so
+          path: dist/debug/xsv0.so
   test-macos:
     name: Testing macos-latest
     runs-on: macos-latest
@@ -46,13 +47,13 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: cargo build --release --verbose
-      #- run: make test
+      - run: make loadable
+      - run: make test
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
           name: sqlite-xsv-macos
-          path: target/release/libxsv0.dylib
+          path: dist/debug/xsv0.dylib
   test-windows:
     name: Testing windows-latest
     runs-on: windows-latest
@@ -70,13 +71,13 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: cargo build --release --verbose
-      #- run: make test
+      - run: make loadable
+      - run: make test
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
           name: sqlite-xsv-windows
-          path: target/release/xsv0.dll
+          path: dist/debug/xsv0.dll
   upload:
     name: upload to unstable
     needs: [test-macos, test-ubuntu, test-windows]
@@ -91,5 +92,5 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const script = require('.github/workflows/upload.js')
+            const script = require('.github/workflows/upload-unstable.js')
             await script({github, context})
