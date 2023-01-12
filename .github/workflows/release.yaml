@@ -80,7 +80,7 @@ jobs:
           path: dist/debug/xsv0.dll
   upload:
     name: upload
-    needs: [test-macos, test-ubuntu, test-windows]
+    needs: [build-macos, build-ubuntu, build-windows]
     permissions:
       contents: write
     runs-on: ubuntu-latest
