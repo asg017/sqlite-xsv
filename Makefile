@@ -60,6 +60,7 @@ sqlite-xsv.h: cbindgen.toml
 release: $(TARGET_LOADABLE_RELEASE) $(TARGET_STATIC_RELEASE)
 
 loadable: $(TARGET_LOADABLE)
+loadable-release: $(TARGET_LOADABLE_RELEASE)
 static: $(TARGET_STATIC)
 
 clean:
@@ -69,4 +70,4 @@ clean:
 test:
 	python3 tests/test-loadable.py
 
-.PHONY: clean test loadable static
+.PHONY: clean test loadable loadable-release static

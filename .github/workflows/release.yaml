@@ -23,7 +23,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: make release
+      - run: make loadable-release
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -46,7 +46,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: make release
+      - run: make loadable-release
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -69,7 +69,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: make release
+      - run: make loadable-release
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:

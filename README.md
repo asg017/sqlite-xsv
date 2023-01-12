@@ -37,7 +37,7 @@ select * from temp.students;
 Provide a schema for CSVs that lack headers, or to provide types on columns.
 
 ```sql
-create virtual table students_no_header using csv(
+create virtual table temp.students_no_header using csv(
   filename="students_no_header.csv",
   header=false,
   id text,
@@ -45,7 +45,26 @@ create virtual table students_no_header using csv(
   age int,
 );
 
-select * from students_no_header;
+select * from temp.students_no_header;
+
+```
+
+Query files that are gzip'ed or compressed with `zstd` directly.
+
+```sql
+create virtual table temp.students_gz using csv(
+  filename="students.csv.gz"
+);
+
+select * from temp.students_gz;
+
+
+create virtual table temp.students_zst using csv(
+  filename="students.csv.zst"
+);
+
+select * from temp.students_zst;
+
 
 ```
 
