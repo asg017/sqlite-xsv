@@ -1,38 +1,21 @@
-```
-gcc csv.c -fPIC -shared -O3 -o csv.dylib -I /Users/alex/projects/sqlite-lines/sqlite
-gcc vsv.c -fPIC -shared -O3 -o vsv.dylib -I /Users/alex/projects/sqlite-lines/sqlite
-```
+# sqlite-xsv Benchmarks
 
-```
+## Counting records in a CSV file
 
-git clone https://github.com/asg017/sqlite-xsv.git
+![](./count.png)
 
-sudo apt-get update
-sudo apt-get install gcc unzip python3-pip clang wget sqlite3 libsqlite3-dev
+This benchmarks instructs various CSV tools to count the number of records in a [real-world CSV file](https://github.com/datadesk/california-coronavirus-data/blob/master/latimes-place-totals.csv), which is 75MB in size with over 1.1 million rows.
 
-curl https://sh.rustup.rs -sSf | sh
-source "$HOME/.cargo/env"
+We can see `sqlite-xsv` outperforms nearly all other tools in this benchmarks, including new-age performant tools like DuckDB, DataFusion, Polars, and more. This is most likely because `sqlite-xsv` uses the [`.read_record()`](https://docs.rs/csv/latest/csv/struct.Reader.html#method.read_record) API in the `csv` crate, which limits the number of underlying memory allocations for extremely high throughput.
 
-cargo install datafusion-cli
-cargo install xsv
-cargo install hyperfine
+But keep in mind: _this is an extremely narrow and limited benchmark._ Counting rows in a CSV only tests how fast a CSV can be read, which is rarely the only thing you care about.
 
-pip install sqlite-utils pandas
+## Aggregating values from a CSV
 
-wget https://github.com/multiprocessio/dsq/releases/download/v0.23.0/dsq-linux-x64-v0.23.0.zip
-wget https://github.com/duckdb/duckdb/releases/download/v0.6.1/duckdb_cli-linux-amd64.zip
-wget https://github.com/cube2222/octosql/releases/download/v0.12.0/octosql_0.12.0_linux_amd64.tar.gz
+![](./aggregate.png)
 
+Here we see where `sqlite-xsv` falls short compared to new-age tools like DuckDB/DataFusion/Polars etc. Those tools use new techniques (algorithms, data structures, vectorized operations, etc.) when performing aggregation calculations, like `GROUP BYs`. For `sqlite-xsv`, those operations are handed over to the SQLite virtual machines, which uses traditional yet slow B-trees for those calculations, showing a significant difference.
 
-cd sqlite-xsv
-cargo build --release
+## Advice
 
-cd benchmarks
-make _data/totals.csv
-
-wget https://raw.githubusercontent.com/sqlite/sqlite/master/ext/misc/csv.c
-wget https://raw.githubusercontent.com/nalgeon/sqlean/main/src/sqlite3-vsv.c
-
-gcc csv.c -fPIC -shared -O3 -o csv.so
-gcc sqlite3-vsv.c -fPIC -shared -O3 -o vsv.so
-```
+If all your doing is ripping through CSVs and saving them to SQLite tables, then `sqlite-xsv` is the fastest CSV SQLite extension that will do just that, with the best ergonomics. But if you want to perform analytical-like queries directly on top of CSV files (without manual indicies), then DuckDB, Polars, and DataFusion rank supreme.
