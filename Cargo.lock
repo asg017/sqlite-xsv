@@ -521,7 +521,7 @@ dependencies = [
 
 [[package]]
 name = "sqlite-xsv"
-version = "0.0.1-alpha.4"
+version = "0.0.1-alpha.5"
 dependencies = [
  "cbindgen",
  "csv",
