@@ -28,7 +28,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: sqlite-xsv-ubuntu
-          path: dist/debug/xsv0.so
+          path: dist/release/xsv0.so
   build-macos:
     name: Build macos-latest
     runs-on: macos-latest
@@ -51,7 +51,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: sqlite-xsv-macos
-          path: dist/debug/xsv0.dylib
+          path: dist/release/xsv0.dylib
   build-windows:
     name: Build windows-latest
     runs-on: windows-latest
@@ -74,7 +74,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: sqlite-xsv-windows
-          path: dist/debug/xsv0.dll
+          path: dist/release/xsv0.dll
   upload:
     name: upload
     needs: [build-macos, build-ubuntu, build-windows]
