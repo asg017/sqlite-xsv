@@ -18,7 +18,7 @@ aggregate.png: ./aggregate/results.json Makefile
 		--redefine-file=data:json:$< \
 		--redefine-file=highlight:json:<(echo '["./sqlite-xsv.sh"]') \
 		'--redefine=compareTo:./sqlite-xsv.sh' \
-		'--redefine=title:Count 1.1 millions rows in a 75MB CSV.' \
+		'--redefine=title:GROUP BY aggregation on a 226MB, 2.1 million row CSV .' \
 		'--redefine=footer:sqlite-xsv version 0.0.1, ran on a Digital Ocean Droplet 8GB RAM, 4vCPUs' \
 		-o $@
 

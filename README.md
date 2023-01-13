@@ -109,7 +109,7 @@ where files.path like '%.csv';
 Query CSVs from HTTP endpoints, with the reader API and [`sqlite-http`](https://github.com/asg017/sqlite-http). Note: Only works for CSVs that work in memory, for now.
 
 ```sql
-.load ./xsv0
+.load ./http0
 -- Reading a CSV from the wonderful LA Times COVID project
 -- https://github.com/datadesk/california-coronavirus-data
 
