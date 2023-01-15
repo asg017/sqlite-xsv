@@ -6,7 +6,7 @@ A fast and performant SQLite extension for CSV files, written in Rust! Based on 
 - The "reader" interface lets you query CSVs from other data sources, such as [`sqlite-http`](https://github.com/asg017/sqlite-http)
 - Builtin support for querying CSVs with gzip or zstd compression
 
-See [_Introducing sqlite-loadable-rs: A framework for building SQLite Extensions in Rust_](https://observablehq.com/@asg017/introducing-sqlite-xsv) (Jan 2023) for more details!
+See [_Introducing sqlite-xsv: The Fastest CSV Parser for SQLite_](https://observablehq.com/@asg017/introducing-sqlite-xsv) (Jan 2023) for more details!
 
 > **Note**
 > Nothing to do with [xsv](https://github.com/BurntSushi/xsv), but is based on the same csv crate. This is named `sqlite-xsv` to distinguish between the official [SQLite CSV Virtual table](https://www.sqlite.org/csv.html) and the [`sqlean` vsv extension](https://github.com/nalgeon/sqlean/blob/main/docs/vsv.md).
