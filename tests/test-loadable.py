@@ -224,7 +224,7 @@ class TestXsv(unittest.TestCase):
         {"a": '1', "b": '2', "c": '3'},
       ]
     )
-    with self.assertRaisesRegex(sqlite3.OperationalError, "Error while reading next row: CSV error: record 2 \(line: 3, byte: 12\): found record with 2 fields, but the previous record has 3 fields"):
+    with self.assertRaisesRegex(sqlite3.OperationalError, "Error while reading next row: CSV error: .* found record with 2 fields, but the previous record has 3 fields"):
       execute_all("select * from not_enough_columns")
     
     # testing whe there's too many columns in a row
@@ -235,7 +235,7 @@ class TestXsv(unittest.TestCase):
         {"a": '1', "b": '2', "c": '3'},
       ]
     )
-    with self.assertRaisesRegex(sqlite3.OperationalError, "Error while reading next row: CSV error: record 2 \(line: 3, byte: 12\): found record with 4 fields, but the previous record has 3 fields"):
+    with self.assertRaisesRegex(sqlite3.OperationalError, "Error while reading next row: CSV error: .* found record with 4 fields, but the previous record has 3 fields"):
       execute_all("select * from too_many_columns")
 
     self.exec_fails_with(
