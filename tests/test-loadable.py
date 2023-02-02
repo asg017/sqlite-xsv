@@ -202,9 +202,9 @@ class TestXsv(unittest.TestCase):
         {'rowid': 3, 'age': '30', 'id': '3', 'name': 'craig', 'process': '.3'}
       ]
     )
-    self.assertEqual(
+    self.assertRegex(
       explain_query_plan("select * from students"), 
-      "SCAN students VIRTUAL TABLE INDEX 1:"
+      "SCAN (TABLE )?students VIRTUAL TABLE INDEX 1:"
     )
     self.assertEqual(
       execute_all("select cid, name, type, hidden from pragma_table_xinfo('students')"), 
