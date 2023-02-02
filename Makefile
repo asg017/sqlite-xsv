@@ -86,14 +86,6 @@ python-release: $(TARGET_LOADABLE_RELEASE) $(TARGET_WHEELS_RELEASE) python/sqlit
 	pip3 wheel python/sqlite_xsv/ -w $(TARGET_WHEELS_RELEASE)
 	python3 .github/workflows/rename-wheels.py $(TARGET_WHEELS_RELEASE) $(RENAME_WHEELS_ARGS)
 
-datasette: $(TARGET_WHEELS) python/datasette_sqlite_xsv/setup.py python/datasette_sqlite_xsv/datasette_sqlite_xsv/__init__.py
-	rm $(TARGET_WHEELS)/datasette* || true
-	pip3 wheel python/datasette_sqlite_xsv/ --no-deps -w $(TARGET_WHEELS)
-
-datasette-release: $(TARGET_WHEELS_RELEASE) python/datasette_sqlite_xsv/setup.py python/datasette_sqlite_xsv/datasette_sqlite_xsv/__init__.py
-	rm $(TARGET_WHEELS_RELEASE)/datasette* || true
-	pip3 wheel python/datasette_sqlite_xsv/ --no-deps -w $(TARGET_WHEELS_RELEASE)
-
 format:
 	cargo fmt
 
@@ -129,6 +121,5 @@ test:
 	test test-loadable test-python \
 	loadable loadable-release \
 	python python-release \
-	datasette datasette-release \
 	static static-release \
 	debug release

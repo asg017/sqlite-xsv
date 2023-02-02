@@ -43,7 +43,6 @@ jobs:
       - uses: actions/setup-python@v3
       - run: pip install wheel
       - run: make python
-      - run: make datasette
       - uses: actions/upload-artifact@v3
         with:
           name: sqlite-xsv-ubuntu-wheels
@@ -100,7 +99,6 @@ jobs:
       - uses: actions/setup-python@v3
       - run: pip install wheel
       - run: make python
-      - run: make datasette
       - uses: actions/upload-artifact@v3
         with:
           name: sqlite-xsv-macos-wheels
@@ -159,7 +157,6 @@ jobs:
       - uses: actions/setup-python@v3
       - run: pip install wheel
       - run: make python IS_MACOS_ARM=1
-      - run: make datasette
       - uses: actions/upload-artifact@v3
         with:
           name: sqlite-xsv-macos-arm-wheels
