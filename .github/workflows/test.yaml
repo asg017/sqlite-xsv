@@ -1,16 +1,17 @@
-name: "test build"
+name: "build"
 on:
   push:
     branches:
       - main
+      - pip-install
 permissions:
   contents: read
 jobs:
-  test-ubuntu:
-    name: Testing ubuntu-latest
-    runs-on: ubuntu-latest
+  build-ubuntu-extension:
+    name: Building ubuntu
+    runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
           path: |
@@ -24,17 +25,49 @@ jobs:
         with:
           toolchain: stable
       - run: make loadable
-      - run: make test
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sqlite-xsv-ubuntu
           path: dist/debug/xsv0.so
-  test-macos:
-    name: Testing macos-latest
+  build-ubuntu-python:
+    runs-on: ubuntu-18.04
+    needs: [build-ubuntu-extension]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-ubuntu
+          path: dist/debug/
+      - uses: actions/setup-python@v3
+      - run: pip install wheel
+      - run: make python
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sqlite-xsv-ubuntu-wheels
+          path: dist/debug/wheels/*.whl
+  test-ubuntu:
+    runs-on: ubuntu-20.04
+    needs: [build-ubuntu-extension, build-ubuntu-python]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-ubuntu
+          path: dist/debug/
+      - uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-ubuntu-wheels
+          path: dist/debug/
+      - run: pip install --find-links dist/debug/ sqlite_xsv
+      - run: make test-loadable
+      - run: make test-python
+  build-macos-extension:
+    name: Building macos-latest
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
           path: |
@@ -48,17 +81,91 @@ jobs:
         with:
           toolchain: stable
       - run: make loadable
-      - run: make test
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sqlite-xsv-macos
           path: dist/debug/xsv0.dylib
-  test-windows:
-    name: Testing windows-latest
+  build-macos-python:
+    runs-on: macos-latest
+    needs: [build-macos-extension]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-macos
+          path: dist/debug/
+      - uses: actions/setup-python@v3
+      - run: pip install wheel
+      - run: make python
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sqlite-xsv-macos-wheels
+          path: dist/debug/wheels/*.whl
+  test-macos:
+    runs-on: macos-latest
+    needs: [build-macos-extension, build-macos-python]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-macos
+          path: dist/debug/
+      - uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-macos-wheels
+          path: dist/debug/
+      - run: brew install python
+      - run: /usr/local/opt/python@3/libexec/bin/pip install --find-links dist/debug/ sqlite_xsv
+      - run: make test-loadable python=/usr/local/opt/python@3/libexec/bin/python
+      - run: make test-python python=/usr/local/opt/python@3/libexec/bin/python
+  build-macos-arm-extension:
+    name: Building macos arm extension
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: rustup target add aarch64-apple-darwin
+      - run: make loadable target=aarch64-apple-darwin
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: sqlite-xsv-macos-arm
+          path: dist/debug/xsv0.dylib
+  build-macos-arm-python:
+    runs-on: macos-latest
+    needs: [build-macos-arm-extension]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-macos-arm
+          path: dist/debug/
+      - uses: actions/setup-python@v3
+      - run: pip install wheel
+      - run: make python IS_MACOS_ARM=1
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sqlite-xsv-macos-arm-wheels
+          path: dist/debug/wheels/*.whl
+  build-windows-extension:
+    name: Building windows extension
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
           path: |
@@ -72,25 +179,67 @@ jobs:
         with:
           toolchain: stable
       - run: make loadable
-      - run: make test
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sqlite-xsv-windows
           path: dist/debug/xsv0.dll
-  upload:
-    name: upload to unstable
-    needs: [test-macos, test-ubuntu, test-windows]
-    permissions:
-      contents: write
+  build-windows-python:
+    runs-on: windows-latest
+    needs: [build-windows-extension]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-windows
+          path: dist/debug/
+      - uses: actions/setup-python@v3
+      - run: pip install wheel
+      - run: make python
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sqlite-xsv-windows-wheels
+          path: dist/debug/wheels/*.whl
+  test-windows:
+    runs-on: windows-latest
+    needs: [build-windows-extension, build-windows-python]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-windows
+          path: dist/debug/
+      - uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-windows-wheels
+          path: dist/debug/
+      - run: pip install --find-links dist/debug/ sqlite_xsv
+      - run: make test-loadable
+      - run: make test-python
+  upload_test_pypi:
+    if: ${{ contains(github.event.head_commit.message, '@test_pypi') }}
+    needs: [test-ubuntu, test-macos, test-windows, build-macos-arm-python]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Download workflow artifacts
-        uses: actions/download-artifact@v2
-      - uses: actions/github-script@v6
+      - uses: actions/download-artifact@v3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const script = require('.github/workflows/upload-unstable.js')
-            await script({github, context})
+          name: sqlite-xsv-windows-wheels
+          path: dist
+      - uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-ubuntu-wheels
+          path: dist
+      - uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-macos-wheels
+          path: dist
+      - uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-macos-arm-wheels
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
+          skip_existing: true
