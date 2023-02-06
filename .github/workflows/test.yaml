@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - main
-      - pip-install
 permissions:
   contents: read
 jobs:
