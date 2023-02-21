@@ -1,5 +1,8 @@
 # TODO
 
+- [ ] http support
+  - [ ] `xsv`: `source="https://..."`
+  - [ ] `xsv_reader`: `http_request()`
 - [ ] `data="..."` support
 - [ ] `data=:param`
 - [ ] `filename=:path` support
