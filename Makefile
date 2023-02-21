@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 
 ifeq ($(shell uname -s),Darwin)
 CONFIG_DARWIN=y
@@ -86,6 +87,16 @@ python-release: $(TARGET_LOADABLE_RELEASE) $(TARGET_WHEELS_RELEASE) python/sqlit
 	pip3 wheel python/sqlite_xsv/ -w $(TARGET_WHEELS_RELEASE)
 	python3 .github/workflows/rename-wheels.py $(TARGET_WHEELS_RELEASE) $(RENAME_WHEELS_ARGS)
 
+Cargo.toml: VERSION
+	cargo set-version `cat VERSION`
+
+python/sqlite_xsv/sqlite_xsv/version.py: VERSION
+	printf '__version__ = "%s"\n__version_info__ = tuple(__version__.split("."))\n' `cat VERSION` > $@
+
+version: VERSION
+	make Cargo.toml
+	make python/sqlite_xsv/sqlite_xsv/version.py
+
 format:
 	cargo fmt
 
@@ -122,4 +133,5 @@ test:
 	loadable loadable-release \
 	python python-release \
 	static static-release \
-	debug release
+	debug release \
+	format version
