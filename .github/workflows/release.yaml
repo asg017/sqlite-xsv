@@ -167,7 +167,7 @@ jobs:
         with:
           name: sqlite-xsv-windows-wheels
           path: dist/release/wheels/*.whl
-  upload-release-assets:
+  upload-extensions:
     name: Upload release assets
     needs:
       [
@@ -190,7 +190,55 @@ jobs:
           script: |
             const script = require('.github/workflows/upload.js')
             await script({github, context})
-  upload_pypi:
+  upload-npm:
+    needs:
+      [
+        build-macos-extension,
+        build-macos-arm-extension,
+        build-ubuntu-extension,
+        build-windows-extension,
+      ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@v2
+      - run: |
+          cp sqlite-xsv-ubuntu/xsv0.so npm/sqlite-xsv-linux-x64/lib/xsv0.so
+          cp sqlite-xsv-macos/xsv0.dylib npm/sqlite-xsv-darwin-x64/lib/xsv0.dylib
+          cp sqlite-xsv-macos-arm/xsv0.dylib npm/sqlite-xsv-darwin-arm64/lib/xsv0.dylib
+          cp sqlite-xsv-windows/xsv0.dll npm/sqlite-xsv-windows-x64/lib/xsv0.dll
+      - name: Install node
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+          registry-url: "https://registry.npmjs.org"
+      - name: Publish NPM sqlite-xsv-linux-x64
+        working-directory: npm/sqlite-xsv-linux-x64
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish NPM sqlite-xsv-darwin-x64
+        working-directory: npm/sqlite-xsv-darwin-x64
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish NPM sqlite-xsv-darwin-arm64
+        working-directory: npm/sqlite-xsv-darwin-arm64
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish NPM sqlite-xsv-windows-x64
+        working-directory: npm/sqlite-xsv-windows-x64
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish NPM sqlite-xsv
+        working-directory: npm/sqlite-xsv
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+  upload-pypi:
     needs:
       [
         build-ubuntu-python,

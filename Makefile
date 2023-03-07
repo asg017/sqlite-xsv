@@ -87,6 +87,9 @@ python-release: $(TARGET_LOADABLE_RELEASE) $(TARGET_WHEELS_RELEASE) python/sqlit
 	pip3 wheel python/sqlite_xsv/ -w $(TARGET_WHEELS_RELEASE)
 	python3 .github/workflows/rename-wheels.py $(TARGET_WHEELS_RELEASE) $(RENAME_WHEELS_ARGS)
 
+npm: VERSION npm/platform-package.README.md.tmpl npm/platform-package.package.json.tmpl npm/sqlite-xsv/package.json.tmpl scripts/npm_generate_platform_packages.sh
+	scripts/npm_generate_platform_packages.sh
+
 Cargo.toml: VERSION
 	cargo set-version `cat VERSION`
 
@@ -96,6 +99,7 @@ python/sqlite_xsv/sqlite_xsv/version.py: VERSION
 version: VERSION
 	make Cargo.toml
 	make python/sqlite_xsv/sqlite_xsv/version.py
+	make npm
 
 format:
 	cargo fmt
@@ -124,9 +128,13 @@ test-loadable:
 test-python:
 	$(PYTHON) tests/test-python.py
 
+test-npm:
+	node npm/sqlite-xsv/test.js
+
 test:
 	make test-loadable
 	make test-python
+	make test-npm
 
 .PHONY: clean \
 	test test-loadable test-python \
@@ -134,4 +142,5 @@ test:
 	python python-release \
 	static static-release \
 	debug release \
-	format version
+	format version \
+	npm
