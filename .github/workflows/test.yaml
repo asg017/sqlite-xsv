@@ -59,6 +59,10 @@ jobs:
           path: dist/debug/
       - uses: actions/download-artifact@v3
         with:
+          name: sqlite-xsv-ubuntu
+          path: npm/sqlite-xsv-linux-x64/lib
+      - uses: actions/download-artifact@v3
+        with:
           name: sqlite-xsv-ubuntu-wheels
           path: dist/debug/
       - run: pip install --find-links dist/debug/ sqlite_xsv
@@ -135,6 +139,10 @@ jobs:
         with:
           name: sqlite-xsv-macos
           path: dist/debug/
+      - uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-macos
+          path: npm/sqlite-xsv-darwin-x64/lib
       - uses: actions/download-artifact@v3
         with:
           name: sqlite-xsv-macos-wheels
@@ -255,6 +263,10 @@ jobs:
         with:
           name: sqlite-xsv-windows
           path: dist/debug/
+      - uses: actions/download-artifact@v3
+        with:
+          name: sqlite-xsv-ubuntu
+          path: npm/sqlite-xsv-windows-x64/lib
       - uses: actions/download-artifact@v3
         with:
           name: sqlite-xsv-windows-wheels
