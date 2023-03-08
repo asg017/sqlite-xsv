@@ -87,7 +87,7 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('deno/deno.lock') }}
       - run: make test-deno
         env:
-          DENO_SQLITE_XSV_PATH: ${{ github.workspace }}/dist/debug/xsv0.dll
+          DENO_SQLITE_XSV_PATH: ${{ github.workspace }}/dist/debug/xsv0
   build-macos-extension:
     name: Building macos-latest
     runs-on: macos-latest
@@ -170,7 +170,7 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('deno/deno.lock') }}
       - run: make test-deno
         env:
-          DENO_SQLITE_XSV_PATH: ${{ github.workspace }}/dist/debug/xsv0.dll
+          DENO_SQLITE_XSV_PATH: ${{ github.workspace }}/dist/debug/xsv0
   build-macos-arm-extension:
     name: Building macos arm extension
     runs-on: macos-latest
@@ -293,7 +293,7 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('deno/deno.lock') }}
       - run: make test-deno
         env:
-          DENO_SQLITE_XSV_PATH: ${{ github.workspace }}/dist/debug/xsv0.dll
+          DENO_SQLITE_XSV_PATH: ${{ github.workspace }}/dist/debug/xsv0
   upload_test_pypi:
     if: ${{ contains(github.event.head_commit.message, '@test_pypi') }}
     needs: [test-ubuntu, test-macos, test-windows, build-macos-arm-python]
