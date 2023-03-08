@@ -90,6 +90,9 @@ python-release: $(TARGET_LOADABLE_RELEASE) $(TARGET_WHEELS_RELEASE) python/sqlit
 npm: VERSION npm/platform-package.README.md.tmpl npm/platform-package.package.json.tmpl npm/sqlite-xsv/package.json.tmpl scripts/npm_generate_platform_packages.sh
 	scripts/npm_generate_platform_packages.sh
 
+deno: VERSION deno/deno.json.tmpl
+	scripts/deno_generate_package.sh
+
 Cargo.toml: VERSION
 	cargo set-version `cat VERSION`
 
@@ -100,6 +103,7 @@ version: VERSION
 	make Cargo.toml
 	make python/sqlite_xsv/sqlite_xsv/version.py
 	make npm
+	make deno
 
 format:
 	cargo fmt
@@ -131,16 +135,20 @@ test-python:
 test-npm:
 	node npm/sqlite-xsv/test.js
 
+test-deno:
+	deno task --config deno/deno.json test
+
 test:
 	make test-loadable
 	make test-python
 	make test-npm
+	make test-deno
 
 .PHONY: clean \
-	test test-loadable test-python \
+	test test-loadable test-python test-npm test-deno \
 	loadable loadable-release \
 	python python-release \
 	static static-release \
 	debug release \
 	format version \
-	npm
+	npm deno
