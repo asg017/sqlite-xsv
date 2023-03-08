@@ -49,6 +49,8 @@ jobs:
   test-ubuntu:
     runs-on: ubuntu-20.04
     needs: [build-ubuntu-extension, build-ubuntu-python]
+    env:
+      DENO_DIR: deno_cache
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -62,6 +64,26 @@ jobs:
       - run: pip install --find-links dist/debug/ sqlite_xsv
       - run: make test-loadable
       - run: make test-python
+      # for test-npm
+      - uses: actions/setup-node@v3
+        with:
+          cache: "npm"
+          cache-dependency-path: npm/sqlite-xsv/package.json
+      - run: npm install
+        working-directory: npm/sqlite-xsv
+      - run: make test-npm
+      # for test-deno
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.30
+      - name: Cache Deno dependencies
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.DENO_DIR }}
+          key: ${{ runner.os }}-${{ hashFiles('deno/deno.lock') }}
+      - run: make test-deno
+        env:
+          DENO_SQLITE_XSV_PATH: ${{ github.workspace }}/dist/debug/xsv0.dll
   build-macos-extension:
     name: Building macos-latest
     runs-on: macos-latest
@@ -105,6 +127,8 @@ jobs:
   test-macos:
     runs-on: macos-latest
     needs: [build-macos-extension, build-macos-python]
+    env:
+      DENO_DIR: deno_cache
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -119,6 +143,26 @@ jobs:
       - run: /usr/local/opt/python@3/libexec/bin/pip install --find-links dist/debug/ sqlite_xsv
       - run: make test-loadable python=/usr/local/opt/python@3/libexec/bin/python
       - run: make test-python python=/usr/local/opt/python@3/libexec/bin/python
+      # for test-npm
+      - uses: actions/setup-node@v3
+        with:
+          cache: "npm"
+          cache-dependency-path: npm/sqlite-xsv/package.json
+      - run: npm install
+        working-directory: npm/sqlite-xsv
+      - run: make test-npm
+      # for test-deno
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.30
+      - name: Cache Deno dependencies
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.DENO_DIR }}
+          key: ${{ runner.os }}-${{ hashFiles('deno/deno.lock') }}
+      - run: make test-deno
+        env:
+          DENO_SQLITE_XSV_PATH: ${{ github.workspace }}/dist/debug/xsv0.dll
   build-macos-arm-extension:
     name: Building macos arm extension
     runs-on: macos-latest
@@ -203,6 +247,8 @@ jobs:
   test-windows:
     runs-on: windows-latest
     needs: [build-windows-extension, build-windows-python]
+    env:
+      DENO_DIR: deno_cache
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -216,6 +262,26 @@ jobs:
       - run: pip install --find-links dist/debug/ sqlite_xsv
       - run: make test-loadable
       - run: make test-python
+      # for test-npm
+      - uses: actions/setup-node@v3
+        with:
+          cache: "npm"
+          cache-dependency-path: npm/sqlite-xsv/package.json
+      - run: npm install
+        working-directory: npm/sqlite-xsv
+      - run: make test-npm
+      # for test-deno
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.30
+      - name: Cache Deno dependencies
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.DENO_DIR }}
+          key: ${{ runner.os }}-${{ hashFiles('deno/deno.lock') }}
+      - run: make test-deno
+        env:
+          DENO_SQLITE_XSV_PATH: ${{ github.workspace }}/dist/debug/xsv0.dll
   upload_test_pypi:
     if: ${{ contains(github.event.head_commit.message, '@test_pypi') }}
     needs: [test-ubuntu, test-macos, test-windows, build-macos-arm-python]
