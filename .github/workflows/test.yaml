@@ -265,7 +265,7 @@ jobs:
           path: dist/debug/
       - uses: actions/download-artifact@v3
         with:
-          name: sqlite-xsv-ubuntu
+          name: sqlite-xsv-windows
           path: npm/sqlite-xsv-windows-x64/lib
       - uses: actions/download-artifact@v3
         with:
