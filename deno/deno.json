@@ -1,6 +1,6 @@
 {
   "name": "sqlite-xsv",
-  "version": "0.2.1-alpha.3",
+  "version": "0.2.1-alpha.4",
   "github": "https://github.com/asg017/sqlite-xsv",
   "tasks": {
     "test": "deno test --unstable -A test.ts"

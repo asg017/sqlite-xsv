@@ -3,13 +3,13 @@
 # `x/sqlite_xsv` Deno Module
 
 [![Tags](https://img.shields.io/github/release/asg017/sqlite-xsv)](https://github.com/asg017/sqlite-xsv/releases)
-[![Doc](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/deno.land/x/sqlite-xsv@0.2.1-alpha.3/mod.ts)
+[![Doc](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/deno.land/x/sqlite-xsv@0.2.1-alpha.4/mod.ts)
 
 The [`sqlite-xsv`](https://github.com/asg017/sqlite-xsv) SQLite extension is available to Deno developers with the [`x/sqlite_xsv`](https://deno.land/x/sqlite_xsv) Deno module. It works with [`x/sqlite3`](https://deno.land/x/sqlite3), the fastest and native Deno SQLite3 module.
 
 ```js
 import { Database } from "https://deno.land/x/sqlite3@0.8.0/mod.ts";
-import * as sqlite_xsv from "https://deno.land/x/sqlite_xsv@v0.2.1-alpha.3/mod.ts";
+import * as sqlite_xsv from "https://deno.land/x/sqlite_xsv@v0.2.1-alpha.4/mod.ts";
 
 const db = new Database(":memory:");
 
