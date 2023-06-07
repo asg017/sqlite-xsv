@@ -39,7 +39,7 @@ ifdef target
 CARGO_TARGET=--target=$(target)
 BUILT_LOCATION=target/$(target)/debug/$(LIBRARY_PREFIX)sqlite_xsv.$(LOADABLE_EXTENSION)
 BUILT_LOCATION_RELEASE=target/$(target)/release/$(LIBRARY_PREFIX)sqlite_xsv.$(LOADABLE_EXTENSION)
-else 
+else
 CARGO_TARGET=
 BUILT_LOCATION=target/debug/$(LIBRARY_PREFIX)sqlite_xsv.$(LOADABLE_EXTENSION)
 BUILT_LOCATION_RELEASE=target/release/$(LIBRARY_PREFIX)sqlite_xsv.$(LOADABLE_EXTENSION)
@@ -76,13 +76,13 @@ $(TARGET_LOADABLE_RELEASE): $(prefix) $(shell find . -type f -name '*.rs')
 	cp $(BUILT_LOCATION_RELEASE) $@
 
 python: $(TARGET_WHEELS) $(TARGET_LOADABLE) python/sqlite_xsv/setup.py python/sqlite_xsv/sqlite_xsv/__init__.py .github/workflows/rename-wheels.py
-	cp $(TARGET_LOADABLE) $(INTERMEDIATE_PYPACKAGE_EXTENSION) 
+	cp $(TARGET_LOADABLE) $(INTERMEDIATE_PYPACKAGE_EXTENSION)
 	rm $(TARGET_WHEELS)/sqlite_xsv* || true
 	pip3 wheel python/sqlite_xsv/ -w $(TARGET_WHEELS)
 	python3 .github/workflows/rename-wheels.py $(TARGET_WHEELS) $(RENAME_WHEELS_ARGS)
 
 python-release: $(TARGET_LOADABLE_RELEASE) $(TARGET_WHEELS_RELEASE) python/sqlite_xsv/setup.py python/sqlite_xsv/sqlite_xsv/__init__.py .github/workflows/rename-wheels.py
-	cp $(TARGET_LOADABLE_RELEASE)  $(INTERMEDIATE_PYPACKAGE_EXTENSION) 
+	cp $(TARGET_LOADABLE_RELEASE)  $(INTERMEDIATE_PYPACKAGE_EXTENSION)
 	rm $(TARGET_WHEELS_RELEASE)/sqlite_xsv* || true
 	pip3 wheel python/sqlite_xsv/ -w $(TARGET_WHEELS_RELEASE)
 	python3 .github/workflows/rename-wheels.py $(TARGET_WHEELS_RELEASE) $(RENAME_WHEELS_ARGS)
@@ -99,11 +99,17 @@ Cargo.toml: VERSION
 python/sqlite_xsv/sqlite_xsv/version.py: VERSION
 	printf '__version__ = "%s"\n__version_info__ = tuple(__version__.split("."))\n' `cat VERSION` > $@
 
+bindings/ruby/lib/version.rb: bindings/ruby/lib/version.rb.tmpl VERSION
+	VERSION=$(VERSION) envsubst < $< > $@
+
+ruby: bindings/ruby/lib/version.rb
+
 version: VERSION
 	make Cargo.toml
 	make python/sqlite_xsv/sqlite_xsv/version.py
 	make npm
 	make deno
+	make ruby
 
 format:
 	cargo fmt
@@ -144,11 +150,14 @@ test:
 	make test-npm
 	make test-deno
 
+publish-release:
+	./scripts/publish_release.sh
+
 .PHONY: clean \
 	test test-loadable test-python test-npm test-deno \
 	loadable loadable-release \
 	python python-release \
 	static static-release \
 	debug release \
-	format version \
-	npm deno
+	format version publish-release \
+	npm deno ruby
