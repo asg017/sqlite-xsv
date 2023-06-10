@@ -159,13 +159,13 @@ See [`docs.md`](./docs.md) for a full API reference.
 | Node.js        | `npm install sqlite-xsv`                                   | [![npm](https://img.shields.io/npm/v/sqlite-xsv.svg?color=green&logo=nodedotjs&logoColor=white)](https://www.npmjs.com/package/sqlite-xsv)                                         |
 | Deno           | [`deno.land/x/sqlite_xsv`](https://deno.land/x/sqlite_xsv) | [![deno.land/x release](https://img.shields.io/github/v/release/asg017/sqlite-xsv?color=fef8d2&include_prereleases&label=deno.land%2Fx&logo=deno)](https://deno.land/x/sqlite_xsv) |
 | Ruby           | `gem install sqlite-xsv`                                   | ![Gem](https://img.shields.io/gem/v/sqlite-xsv?color=red&logo=rubygems&logoColor=white)                                                                                            |
+| Rust           | `cargo add sqlite-xsv`                                     | [![Crates.io](https://img.shields.io/crates/v/sqlite-xsv?logo=rust)](https://crates.io/crates/sqlite-xsv)                                                                          |
 | Github Release |                                                            | ![GitHub tag (latest SemVer pre-release)](https://img.shields.io/github/v/tag/asg017/sqlite-xsv?color=lightgrey&include_prereleases&label=Github+release&logo=github)              |
 
 <!--
 | Datasette      | `datasette install datasette-sqlite-xsv`                   | [![Datasette](https://img.shields.io/pypi/v/datasette-sqlite-xsv.svg?color=B6B6D9&label=Datasette+plugin&logoColor=white&logo=python)](https://datasette.io/plugins/datasette-sqlite-xsv) |
 | Elixir         | [`hex.pm/packages/sqlite_xsv`](https://hex.pm/packages/sqlite_xsv) | [![Hex.pm](https://img.shields.io/hexpm/v/sqlite_xsv?color=purple&logo=elixir)](https://hex.pm/packages/sqlite_xsv)                                                                       |
 | Go             | `go get -u github.com/asg017/sqlite-xsv/bindings/go`               | [![Go Reference](https://pkg.go.dev/badge/github.com/asg017/sqlite-xsv/bindings/go.svg)](https://pkg.go.dev/github.com/asg017/sqlite-xsv/bindings/go)                                     |
-| Rust           | `cargo add sqlite-xsv`                                             | [![Crates.io](https://img.shields.io/crates/v/sqlite-xsv?logo=rust)](https://crates.io/crates/sqlite-xsv)                                                                                 |
 -->
 
 The [Releases page](https://github.com/asg017/sqlite-xsv/releases) contains pre-built binaries for Linux amd64, MacOS amd64 (no arm yet), and Windows.
