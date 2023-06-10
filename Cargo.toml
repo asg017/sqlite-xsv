@@ -2,6 +2,12 @@
 name = "sqlite-xsv"
 version = "0.2.1-alpha.9"
 edition = "2021"
+authors = ["Alex Garcia <alexsebastian.garcia@gmail.com>"]
+description = "A SQLite extension for reading large CSVs"
+homepage = "https://github.com/asg017/sqlite-xsv"
+repository = "https://github.com/asg017/sqlite-xsv"
+keywords = ["sqlite", "sqlite-extension"]
+license = "MIT/Apache-2.0"
 
 [dependencies]
 sqlite-loadable = "0.0.5"
