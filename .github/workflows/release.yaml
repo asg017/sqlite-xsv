@@ -181,15 +181,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Download workflow artifacts
-        uses: actions/download-artifact@v2
-      - run: npm install tar-fs
-      - uses: actions/github-script@v6
+      - uses: actions/download-artifact@v2
+      - uses: asg017/upload-spm@main
+        id: upload-spm
         with:
+          name: sqlite-xsv
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const script = require('.github/workflows/upload.js')
-            await script({github, context})
+          platforms: |
+            linux-x86_64:     sqlite-xsv-ubuntu/*
+            macos-x86_64:     sqlite-xsv-macos/*
+            macos-aarch64:    sqlite-xsv-macos-arm/*
+            windows-x86_64:   sqlite-xsv-windows/*
   upload-deno:
     name: Upload Deno release assets
     needs:
@@ -202,20 +204,16 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    outputs:
-      checksums: ${{ steps.upload-spm.outputs.asset-checksums }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
-      - uses: asg017/upload-spm@main
-        id: upload-spm
+      - uses: actions/checkout@v3
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@v2
+      - uses: actions/github-script@v6
         with:
-          name: sqlite-xsv
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          platforms: |
-            macos-x86_64:     sqlite-xsv-macos/*
-            linux-x86_64:     sqlite-xsv-ubuntu/*
-            windows-x86_64:     sqlite-xsv-windows/*
+          script: |
+            const script = require('.github/workflows/upload-deno-assets.js')
+            await script({github, context})
   upload-npm:
     needs:
       [
