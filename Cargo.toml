@@ -4,7 +4,6 @@ version = "0.2.1-alpha.7"
 edition = "2021"
 
 [dependencies]
-#sqlite-loadable = {path="../sqlite-loadable-rs"}
 sqlite-loadable = "0.0.5"
 csv = "1.1"
 flate2 = {version="1.0.24", optional=true}
