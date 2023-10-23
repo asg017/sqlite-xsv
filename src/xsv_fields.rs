@@ -40,7 +40,7 @@ impl<'vtab> VTab<'vtab> for XsvFieldsTable {
 
     fn connect(
         _db: *mut sqlite3,
-        aux: Option<&Self::Aux>,
+        _aux: Option<&Self::Aux>,
         _args: VTabArguments,
     ) -> Result<(String, XsvFieldsTable)> {
         let base: sqlite3_vtab = unsafe { mem::zeroed() };

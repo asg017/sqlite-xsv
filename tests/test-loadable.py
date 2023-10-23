@@ -126,22 +126,46 @@ class TestXsv(unittest.TestCase):
         self.skipTest("TODO")
 
     def test_xsv_line_number(self):
-        self.skipTest("TODO")
+        with self.assertRaisesRegex(
+            sqlite3.OperationalError,
+            "unable to use function xsv_line_number in the requested context",
+        ):
+            db.execute("select xsv_line_number(1)")
 
     def test_csv_line_number(self):
-        self.skipTest("TODO")
+        with self.assertRaisesRegex(
+            sqlite3.OperationalError,
+            "unable to use function csv_line_number in the requested context",
+        ):
+            db.execute("select csv_line_number(1)")
 
     def test_tsv_line_number(self):
-        self.skipTest("TODO")
+        with self.assertRaisesRegex(
+            sqlite3.OperationalError,
+            "unable to use function tsv_line_number in the requested context",
+        ):
+            db.execute("select tsv_line_number(1)")
 
     def test_xsv_path(self):
-        self.skipTest("TODO")
+        with self.assertRaisesRegex(
+            sqlite3.OperationalError,
+            "unable to use function xsv_path in the requested context",
+        ):
+            db.execute("select xsv_path(1)")
 
     def test_csv_path(self):
-        self.skipTest("TODO")
+        with self.assertRaisesRegex(
+            sqlite3.OperationalError,
+            "unable to use function csv_path in the requested context",
+        ):
+            db.execute("select csv_path(1)")
 
     def test_tsv_path(self):
-        self.skipTest("TODO")
+        with self.assertRaisesRegex(
+            sqlite3.OperationalError,
+            "unable to use function tsv_path in the requested context",
+        ):
+            db.execute("select tsv_path(1)")
 
     def exec_fails_with(self, sql, message, error=sqlite3.OperationalError):
         with self.assertRaisesRegex(error, message):

@@ -11,3 +11,4 @@ dist/
 *.so
 *.dll
 
+.vscode
