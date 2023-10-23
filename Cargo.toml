@@ -10,10 +10,13 @@ keywords = ["sqlite", "sqlite-extension"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-sqlite-loadable = "0.0.5"
+#sqlite-loadable = "0.0.6-alpha.2"
+sqlite-loadable = {path="../sqlite-loadable-rs"}
 csv = "1.1"
 flate2 = {version="1.0.24", optional=true}
 zstd = {version="0.12.1",  optional=true}
+sqlite-reader = {git="https://github.com/asg017/sqlite-reader.git"}
+glob = "0.3"
 
 [build-dependencies]
 cbindgen = "0.24.3"

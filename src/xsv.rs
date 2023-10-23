@@ -1,11 +1,16 @@
-use sqlite_loadable::prelude::*;
+use sqlite_loadable::scalar::scalar_function_raw_with_aux;
+use sqlite_loadable::table::VTabFind;
 use sqlite_loadable::vtab_argparse::{parse_argument, Argument, ColumnDeclaration};
 use sqlite_loadable::{
     api,
     table::{IndexInfo, VTab, VTabArguments, VTabCursor},
     BestIndexError, Error, Result,
 };
+use sqlite_loadable::{prelude::*, table};
 
+use glob::{glob, Paths};
+use std::ffi::c_void;
+use std::path::{Path, PathBuf};
 use std::{io::Read, mem, os::raw::c_int};
 
 use crate::util::{
@@ -18,15 +23,21 @@ pub struct XsvTable {
     /// must be first
     base: sqlite3_vtab,
     db: *mut sqlite3,
-    path: String,
+    input: String,
     header: bool,
     delimiter: u8,
     quote: u8,
     declared_columns: Option<Vec<ColumnDeclaration>>,
+
+    // dynamically updated from a cursor's xNext. NOT threadsafe.
+    current_path: String,
+
+    // dynamically updated from a cursor's xNext. NOT threadsafe.
+    current_line_number: u64,
 }
 impl XsvTable {
-    fn reader(&self) -> Result<csv::Reader<Box<dyn Read>>> {
-        let source_reader = get_csv_source_reader(&self.path)?;
+    fn reader<P: AsRef<Path>>(&self, path: P) -> Result<csv::Reader<Box<dyn Read>>> {
+        let source_reader = get_csv_source_reader(path)?;
 
         Ok(csv::ReaderBuilder::new()
             .has_headers(self.header)
@@ -52,7 +63,24 @@ impl XsvTable {
 
             // if no columns were provided, then sniff the headers from the CSV
             None => {
-                let mut reader = self.reader()?;
+                let first_match = glob(self.input.as_str())
+                    .map_err(|e| {
+                        Error::new_message(format!(
+                            "Invalid glob pattern for {}: {}",
+                            self.input, e
+                        ))
+                    })?
+                    .next()
+                    .ok_or_else(|| {
+                        Error::new_message(format!("No matching files found for {}", self.input))
+                    })?
+                    .map_err(|e| {
+                        Error::new_message(format!(
+                            "Error globbing first path for {}: {}",
+                            self.input, e
+                        ))
+                    })?;
+                let mut reader = self.reader(first_match)?;
                 let mut sql = String::from("create table x(");
 
                 let headers = reader
@@ -97,15 +125,22 @@ impl<'vtab> VTab<'vtab> for XsvTable {
         aux: Option<&Self::Aux>,
         args: VTabArguments,
     ) -> Result<(String, XsvTable)> {
-        let arguments = parse_xsv_arguments(db, args.arguments, aux.map(|a| a.to_owned()))?;
+        let arguments = parse_xsv_arguments(
+            db,
+            args.arguments,
+            aux.map(|a| a.to_owned()),
+            args.table_name.as_str(),
+        )?;
         let vtab = XsvTable {
             base: unsafe { mem::zeroed() },
             db,
-            path: arguments.filename,
+            input: arguments.filename.clone(),
             header: arguments.header,
             delimiter: arguments.delimiter,
             quote: arguments.quote,
             declared_columns: arguments.columns,
+            current_path: "".to_owned(),
+            current_line_number: 0,
         };
 
         Ok((vtab.schema_from_reader()?, vtab))
@@ -124,32 +159,141 @@ impl<'vtab> VTab<'vtab> for XsvTable {
     }
 
     fn open(&mut self) -> Result<XsvCursor> {
-        //XsvCursor::new(&self.path, self.delimiter, self.quote)
         XsvCursor::new(self)
     }
+}
+
+impl<'vtab> VTabFind<'vtab> for XsvTable {
+    fn find_function(
+        &mut self,
+        argc: i32,
+        name: &str,
+    ) -> Option<(
+        unsafe extern "C" fn(*mut sqlite3_context, i32, *mut *mut sqlite3_value),
+        Option<i32>,
+        Option<*mut c_void>,
+    )> {
+        if argc == 1 && (name == "xsv_path" || name == "csv_path" || name == "tsv_path") {
+            let x = scalar_function_raw_with_aux(csv_path, self as *mut XsvTable);
+            return Some((x.0, None, Some(x.1)));
+        }
+        if argc == 1
+            && (name == "xsv_line_number" || name == "csv_line_number" || name == "tsv_line_number")
+        {
+            let x = scalar_function_raw_with_aux(csv_line_number, self as *mut XsvTable);
+            return Some((x.0, None, Some(x.1)));
+        }
+        None
+    }
+}
+
+pub fn csv_path(
+    context: *mut sqlite3_context,
+    values: &[*mut sqlite3_value],
+    aux: &*mut XsvTable,
+) -> Result<()> {
+    unsafe {
+        api::result_text(context, (**aux).current_path.as_str())?;
+    }
+    Ok(())
+}
+pub fn csv_line_number(
+    context: *mut sqlite3_context,
+    _values: &[*mut sqlite3_value],
+    aux: &*mut XsvTable,
+) -> Result<()> {
+    let line_number = unsafe { (**aux).current_line_number };
+    api::result_int64(
+        context,
+        line_number.try_into().map_err(|_| {
+            Error::new_message(format!(
+                "Integer overflow in line number: {line_number} is not an i64"
+            ))
+        })?,
+    );
+    Ok(())
 }
 
 #[repr(C)]
 pub struct XsvCursor {
     /// Base class. Must be first
     base: sqlite3_vtab_cursor,
-    reader: csv::Reader<Box<dyn Read>>,
-    record: csv::StringRecord,
     rowid: i64,
+    paths: Paths,
+    current_reader: Option<csv::Reader<Box<dyn Read>>>,
+    current_path: Option<PathBuf>,
+    current_line_number: i64,
+    record: csv::StringRecord,
     eof: bool,
     declared_columns: Option<Vec<ColumnDeclaration>>,
+    table: *mut XsvTable,
 }
 impl XsvCursor {
-    fn new(table: &XsvTable) -> Result<XsvCursor> {
+    fn new(table: &mut XsvTable) -> Result<XsvCursor> {
+        let record = csv::StringRecord::new();
+        let paths = glob(table.input.as_str()).map_err(|e| {
+            Error::new_message(format!(
+                "Invalid input glob pattern for {}: {}",
+                table.input, e
+            ))
+        })?;
         let mut cursor = XsvCursor {
             base: unsafe { mem::zeroed() },
-            reader: table.reader()?,
             rowid: 0,
-            record: csv::StringRecord::new(),
+            paths,
+            current_path: None,
+            current_reader: None,
+            current_line_number: 0,
+            record,
             eof: false,
             declared_columns: table.declared_columns.clone(),
+            table: table as *mut XsvTable,
         };
         cursor.next().map(|_| cursor)
+    }
+
+    fn next_record(&mut self) -> Result<bool> {
+        match self
+            .current_reader
+            .as_mut()
+            .ok_or_else(|| {
+                Error::new_message("Internal sqlite-xsv error: expected current_reader")
+            })?
+            .read_record(&mut self.record)
+        {
+            Ok(has_more) => {
+                unsafe {
+                    // position should always be Some(p) here, but rather be safe than sorry
+                    (*self.table).current_line_number = match self.record.position() {
+                        Some(p) => p.line(),
+                        None => 0,
+                    };
+                }
+                Ok(has_more)
+            }
+            Err(err) => match err.kind() {
+                csv::ErrorKind::Utf8 { pos: _, err: _ } => Err(Error::new_message(
+                    "Error: UTF8 error while reading next row",
+                )),
+                _ => Err(Error::new_message(
+                    format!("Error while reading next row: {}", err).as_str(),
+                )),
+            },
+        }
+    }
+    fn next_path_reader(&mut self) -> Result<Option<csv::Reader<Box<dyn Read>>>> {
+        match self.paths.next() {
+            Some(Ok(path)) => unsafe {
+                let s = path.to_string_lossy();
+                (*self.table).current_path = s.to_string();
+                Ok(Some((*self.table).reader(path)?))
+            },
+            Some(Err(error)) => Err(Error::new_message(format!(
+                "Error on next glob match: {}",
+                error
+            ))),
+            None => Ok(None),
+        }
     }
 }
 
@@ -164,37 +308,48 @@ impl VTabCursor for XsvCursor {
     }
 
     fn next(&mut self) -> Result<()> {
-        match self.reader.read_record(&mut self.record) {
-            Ok(has_more) => {
-                self.eof = !has_more;
-                self.rowid += 1;
-                Ok(())
+        loop {
+            let has_more = match self.current_reader.as_mut() {
+                Some(_) => self.next_record()?,
+                None => match self.next_path_reader()? {
+                    Some(r) => {
+                        self.current_reader = Some(r);
+                        self.next_record()?
+                    }
+                    None => {
+                        self.current_reader = None;
+                        break;
+                    }
+                },
+            };
+            if has_more {
+                break;
             }
-            Err(err) => match err.kind() {
-                csv::ErrorKind::Utf8 { pos: _, err: _ } => Err(Error::new_message(
-                    "Error: UTF8 error while reading next row",
-                )),
-                _ => Err(Error::new_message(
-                    format!("Error while reading next row: {}", err).as_str(),
-                )),
-            },
+            self.current_reader = None;
         }
+        self.rowid += 1;
+        Ok(())
     }
 
     fn eof(&self) -> bool {
-        self.eof
+        self.current_reader.is_none()
     }
 
     fn column(&self, context: *mut sqlite3_context, i: c_int) -> Result<()> {
         let i = usize::try_from(i)
             .map_err(|_| Error::new_message(format!("what the fuck {}", i).as_str()))?;
-        let s = &self
-            .record
-            .get(i)
-            .ok_or_else(|| Error::new_message(format!("wut {}", i).as_str()))?;
-        match self.declared_columns.as_ref().and_then(|c| c.get(i)) {
-            Some(column) => column.affinity().result_text(context, s)?,
-            None => api::result_text(context, s)?,
+
+        // This will typically only be None when a glob pattern is used, and the 1st sniffed CSV
+        // has more column than another CSV in the same glob pattern.
+        // For now we just return NULL for missing columns, not sure how flexible we should be
+        // across CSV files. If it's a single file, i'm pretty sure it's not flexible
+        let value = &self.record.get(i);
+
+        if let Some(value) = value {
+            match self.declared_columns.as_ref().and_then(|c| c.get(i)) {
+                Some(column) => column.affinity().result_text(context, value)?,
+                None => api::result_text(context, value)?,
+            }
         }
 
         Ok(())
@@ -218,6 +373,7 @@ fn parse_xsv_arguments(
     db: *mut sqlite3,
     arguments: Vec<String>,
     initial_delimiter: Option<u8>,
+    table_name: &str,
 ) -> Result<XsvArguments> {
     let mut filename: Option<String> = None;
     let mut header: bool = true;
@@ -247,7 +403,17 @@ fn parse_xsv_arguments(
             Err(err) => return Err(Error::new_message(err.as_str())),
         };
     }
-    let filename = filename.ok_or_else(|| Error::new_message("no filename given. Specify a path to a CSV file to read from with 'filename=\"path.csv\"'"))?;
+    let filename = match filename {
+        Some(filename) => Ok(filename),
+        None => {
+            if glob(table_name).map_or(false, |mut paths| paths.next().is_some()) {
+                Ok(table_name.to_owned())
+            } else {
+                // TODO should this error message say "no filename given" and/or "table_name not a valid path"
+                Err(Error::new_message("no filename given. Specify a path to a CSV file to read from with 'filename=\"path.csv\"'"))
+            }
+        }
+    }?;
     let delimiter = delimiter.ok_or_else(|| {
         Error::new_message("no delimiter given. Specify a delimiter to use with 'delimiter=\"\t\"'")
     })?;
@@ -275,7 +441,8 @@ mod tests {
             parse_xsv_arguments(
                 std::ptr::null_mut(),
                 vec!["filename='a.csv'".to_string()],
-                Some(b',')
+                Some(b','),
+                "table_name"
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
@@ -292,7 +459,8 @@ mod tests {
             parse_xsv_arguments(
                 std::ptr::null_mut(),
                 vec!["filename='a.csv'".to_string()],
-                Some(b',')
+                Some(b','),
+                "table_name"
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
@@ -310,7 +478,8 @@ mod tests {
                     "a int".to_string(),
                     "b text".to_string()
                 ],
-                Some(b',')
+                Some(b','),
+                "table_name"
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
@@ -339,7 +508,8 @@ mod tests {
                     "delimiter='|'".to_string(),
                     "quote='x'".to_string()
                 ],
-                None
+                None,
+                "table_name"
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
@@ -357,7 +527,8 @@ mod tests {
                     "delimiter='|'".to_string(),
                     "quote='\0'".to_string(),
                 ],
-                None
+                None,
+                "table_name"
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
@@ -371,7 +542,8 @@ mod tests {
             parse_xsv_arguments(
                 std::ptr::null_mut(),
                 vec!["filename='a.csv'".to_string(), "delimiter=''".to_string()],
-                None
+                None,
+                "table_name"
             ),
             Err(Error::new(ErrorKind::Message(
                 "delimiter must have at least 1 character".to_string()
@@ -381,7 +553,8 @@ mod tests {
             parse_xsv_arguments(
                 std::ptr::null_mut(),
                 vec!["filename='a.csv'".to_string(), "delimiter='\t'".to_string()],
-                None
+                None,
+                "table_name"
             ),
             Ok(XsvArguments {
                 filename: "a.csv".to_string(),
@@ -395,7 +568,8 @@ mod tests {
             parse_xsv_arguments(
                 std::ptr::null_mut(),
                 vec!["filename='a.csv'".to_string(), "delimiter='💖'".to_string()],
-                None
+                None,
+                "table_name"
             ),
             Err(Error::new(ErrorKind::Message(
                 "delimiter can only be 1 character long".to_string()

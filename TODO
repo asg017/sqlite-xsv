@@ -1,0 +1,6 @@
+- [ ] `xsv_fields` cleanup + test
+- [ ] `xsv_rows` rcleanup + test
+- [ ] `xsv_at` cleanup + test
+
+- [ ] `xsv_reader` accept `sqlite-reader` streams
+- [ ] `->>` override for `xsv_fields` and `xsv_rows`

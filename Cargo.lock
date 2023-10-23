@@ -224,9 +224,9 @@ dependencies = [
 
 [[package]]
 name = "glob"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
+checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
 name = "hashbrown"
@@ -389,9 +389,9 @@ checksum = "6ac9a59f73473f1b8d852421e59e64809f025994837ef743615c6d0c5b305160"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.46"
+version = "1.0.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94e2ef8dbfc347b10c094890f778ee2e36ca9bb4262e86dc99cd217e35f3470b"
+checksum = "18fb31db3f9bddb2ea821cde30a9f70117e3f119938b5ee630b7403aa6e2ead9"
 dependencies = [
  "unicode-ident",
 ]
@@ -497,27 +497,26 @@ checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
 name = "sqlite-loadable"
-version = "0.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a916b7bb8738eef189dea88731b619b80bf3f62b3acf05138fa43fbf8621cc94"
+version = "0.0.6-alpha.6"
 dependencies = [
  "bitflags",
- "serde",
- "serde_json",
  "sqlite-loadable-macros",
  "sqlite3ext-sys",
 ]
 
 [[package]]
 name = "sqlite-loadable-macros"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f98bc75a8d6fd24f6a2cfea34f28758780fa17279d3051eec926efa381971e48"
+version = "0.0.3"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "sqlite-reader"
+version = "0.0.1-alpha.1"
+source = "git+https://github.com/asg017/sqlite-reader.git#e68d357abf7740c1a9535dcb79d5cddb699c4159"
 
 [[package]]
 name = "sqlite-xsv"
@@ -526,18 +525,17 @@ dependencies = [
  "cbindgen",
  "csv",
  "flate2",
+ "glob",
  "sqlite-loadable",
+ "sqlite-reader",
  "zstd",
 ]
 
 [[package]]
 name = "sqlite3ext-sys"
 version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3afdc2b3dc08f16d6eecf8aa07d19975a268603ab1cca67d3f9b4172c507cf16"
 dependencies = [
  "bindgen",
- "cc",
 ]
 
 [[package]]

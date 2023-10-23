@@ -19,39 +19,35 @@ use sqlite_loadable::{vtab_argparse::ConfigOptionValue, Error, Result};
 /// into rust-csv ReadBuilder. Determines whether or not to use gzip
 /// decompressing  (based on file extension only for now), or whether
 /// to use sqlite-http/sqlite-s3 if a URL is supplied.
-pub fn get_csv_source_reader(path: &str) -> Result<Box<dyn Read>> {
-    match Path::new(path).extension().and_then(OsStr::to_str) {
+pub fn get_csv_source_reader<P: AsRef<Path>>(path: P) -> Result<Box<dyn Read>> {
+    match path.as_ref().extension().and_then(OsStr::to_str) {
         Some(ext) => match ext {
             #[cfg(feature = "gzip_support")]
             "gz" => {
-                let r = std::io::BufReader::new(File::open(path).map_err(|_| {
-                    Error::new_message(
-                        format!("Error: filename '{}' does not exist. ", path).as_str(),
-                    )
-                })?);
+                let r = std::io::BufReader::new(
+                    File::open(path).map_err(|e| Error::new_message(e.to_string()))?,
+                );
                 let x = BufReader::new(GzDecoder::new(r));
                 Ok(Box::new(x))
             }
             #[cfg(feature = "zstd_support")]
             "zst" => {
-                let r = std::io::BufReader::new(File::open(path).map_err(|_| {
-                    Error::new_message(
-                        format!("Error: filename '{}' does not exist. ", path).as_str(),
-                    )
-                })?);
+                let r = std::io::BufReader::new(
+                    File::open(path).map_err(|e| Error::new_message(e.to_string()))?,
+                );
                 let x = BufReader::new(
                     ZstdDecoder::new(r)
                         .map_err(|_| Error::new_message("error reading file as zstd"))?,
                 );
                 Ok(Box::new(x))
             }
-            _ => Ok(Box::new(File::open(path).map_err(|_| {
-                Error::new_message(format!("Error: filename '{}' does not exist.", path).as_str())
-            })?)),
+            _ => Ok(Box::new(
+                File::open(path).map_err(|e| Error::new_message(e.to_string()))?,
+            )),
         },
-        _ => Ok(Box::new(File::open(path).map_err(|_| {
-            Error::new_message(format!("Error: filename '{}' does not exist.", path).as_str())
-        })?)),
+        _ => Ok(Box::new(
+            File::open(path).map_err(|e| Error::new_message(e.to_string()))?,
+        )),
     }
 }
 
