@@ -652,6 +652,14 @@ class TestXsv(unittest.TestCase):
         )
         self.assertEqual(
             execute_all(
+                "select * from students_reader('tests/data/student_files/a.csv') limit 1"
+            ),
+            [
+                {"age": 10, "id": 1, "name": "alex", "progess": 0.9},
+            ],
+        )
+        self.assertEqual(
+            execute_all(
                 """
       with files as (
         select value as path

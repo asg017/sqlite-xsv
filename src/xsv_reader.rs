@@ -1,5 +1,6 @@
 use sqlite_loadable::api::ValueType;
 use sqlite_loadable::prelude::*;
+use sqlite_loadable::table::ConstraintOperator;
 use sqlite_loadable::{
     api,
     table::{IndexInfo, VTab, VTabArguments, VTabCursor},
@@ -65,9 +66,13 @@ impl<'vtab> VTab<'vtab> for XsvReaderTable {
     fn best_index(&self, mut info: IndexInfo) -> core::result::Result<(), BestIndexError> {
         let mut has_source = false;
         for mut constraint in info.constraints() {
+            match constraint.op() {
+                Some(ConstraintOperator::LIMIT) | Some(ConstraintOperator::OFFSET) => continue,
+                _ => (),
+            }
             if constraint.column_idx() == 0 {
                 if !has_source && !constraint.usable()
-                    || constraint.op() != Some(sqlite_loadable::table::ConstraintOperator::EQ)
+                    || constraint.op() != Some(ConstraintOperator::EQ)
                 {
                     return Err(BestIndexError::Constraint);
                 }
