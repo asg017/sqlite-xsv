@@ -526,7 +526,7 @@ source = "git+https://github.com/asg017/sqlite-reader.git#e68d357abf7740c1a9535d
 
 [[package]]
 name = "sqlite-xsv"
-version = "0.2.1-alpha.10"
+version = "0.2.1-alpha.11"
 dependencies = [
  "cbindgen",
  "csv",
