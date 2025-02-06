@@ -17,7 +17,7 @@ jobs:
             target: macos-x86_64
           - os: macos-14
             target: macos-aarch64
-          - os: windows-2019
+          - os: windows-2022
             target: windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
