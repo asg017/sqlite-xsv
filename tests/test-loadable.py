@@ -6,7 +6,7 @@ import sys
 
 import platform
 
-IS_WINDOWS = platform.system() == 'Windows'
+IS_WINDOWS = platform.system() == "Windows"
 
 EXT_PATH = "./dist/debug/xsv0"
 
@@ -222,17 +222,17 @@ class TestXsv(unittest.TestCase):
             ),
             [
                 {
-                    "csv_line_number(rowid)": 2,
+                    "csv_line_number(rowid)": 2 - (1 if IS_WINDOWS else 0),
                     "csv_path(rowid)": dir + "students.csv",
                     "name": "alex",
                 },
                 {
-                    "csv_line_number(rowid)": 3,
+                    "csv_line_number(rowid)": 3 - (1 if IS_WINDOWS else 0),
                     "csv_path(rowid)": dir + "students.csv",
                     "name": "brian",
                 },
                 {
-                    "csv_line_number(rowid)": 4,
+                    "csv_line_number(rowid)": 4 - (1 if IS_WINDOWS else 0),
                     "csv_path(rowid)": dir + "students.csv",
                     "name": "craig",
                 },
@@ -252,7 +252,7 @@ class TestXsv(unittest.TestCase):
             [
                 {
                     "csv_path(rowid)": dir + "a.csv",
-                    "csv_line_number(rowid)": 2,
+                    "csv_line_number(rowid)": 2 - (1 if IS_WINDOWS else 0),
                     "id": "a1",
                     "name": "alex",
                     "age": "10",
@@ -260,7 +260,7 @@ class TestXsv(unittest.TestCase):
                 },
                 {
                     "csv_path(rowid)": dir + "a.csv",
-                    "csv_line_number(rowid)": 3,
+                    "csv_line_number(rowid)": 3 - (1 if IS_WINDOWS else 0),
                     "id": "a2",
                     "name": "adrian",
                     "age": "20",
@@ -268,7 +268,7 @@ class TestXsv(unittest.TestCase):
                 },
                 {
                     "csv_path(rowid)": dir + "a.csv",
-                    "csv_line_number(rowid)": 4,
+                    "csv_line_number(rowid)": 4 - (1 if IS_WINDOWS else 0),
                     "id": "a3",
                     "name": "andres",
                     "age": "30",
@@ -276,7 +276,7 @@ class TestXsv(unittest.TestCase):
                 },
                 {
                     "csv_path(rowid)": dir + "b.csv",
-                    "csv_line_number(rowid)": 2,
+                    "csv_line_number(rowid)": 2 - (1 if IS_WINDOWS else 0),
                     "id": "b1",
                     "name": "brian",
                     "age": "60",
@@ -284,7 +284,7 @@ class TestXsv(unittest.TestCase):
                 },
                 {
                     "csv_path(rowid)": dir + "b.csv",
-                    "csv_line_number(rowid)": 3,
+                    "csv_line_number(rowid)": 3 - (1 if IS_WINDOWS else 0),
                     "id": "b2",
                     "name": "beto",
                     "age": "50",
@@ -292,7 +292,7 @@ class TestXsv(unittest.TestCase):
                 },
                 {
                     "csv_path(rowid)": dir + "b.csv",
-                    "csv_line_number(rowid)": 4,
+                    "csv_line_number(rowid)": 4 - (1 if IS_WINDOWS else 0),
                     "id": "b3",
                     "name": "brandy",
                     "age": "40",
@@ -300,7 +300,7 @@ class TestXsv(unittest.TestCase):
                 },
                 {
                     "csv_path(rowid)": dir + "c.csv",
-                    "csv_line_number(rowid)": 2,
+                    "csv_line_number(rowid)": 2 - (1 if IS_WINDOWS else 0),
                     "id": "c1",
                     "name": "craig",
                     "age": "70",
@@ -308,7 +308,7 @@ class TestXsv(unittest.TestCase):
                 },
                 {
                     "csv_path(rowid)": dir + "c.csv",
-                    "csv_line_number(rowid)": 3,
+                    "csv_line_number(rowid)": 3 - (1 if IS_WINDOWS else 0),
                     "id": "c2",
                     "name": "catherine",
                     "age": "90",
@@ -316,7 +316,7 @@ class TestXsv(unittest.TestCase):
                 },
                 {
                     "csv_path(rowid)": dir + "c.csv",
-                    "csv_line_number(rowid)": 4,
+                    "csv_line_number(rowid)": 4 - (1 if IS_WINDOWS else 0),
                     "id": "c3",
                     "name": "coin",
                     "age": "80",
