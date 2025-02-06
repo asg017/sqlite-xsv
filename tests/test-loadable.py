@@ -2,6 +2,8 @@ import sqlite3
 import unittest
 import time
 import os
+import sys
+print(sys.executable)
 
 EXT_PATH = "./dist/debug/xsv0"
 
