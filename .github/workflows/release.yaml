@@ -25,6 +25,11 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - if: ${{ startsWith(matrix.target, 'windows-') }}
+        run: |
+          rustup target add x86_64-pc-windows-gnu
+          rustup set default-host x86_64-pc-windows-gnu
+          echo "RUSTFLAGS=--print=native-static-libs --print=link-args" >> $GITHUB_ENV
       - run: make loadable-release
       - uses: actions/upload-artifact@v4
         with:
