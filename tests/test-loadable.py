@@ -3,7 +3,10 @@ import unittest
 import time
 import os
 import sys
-print(sys.executable)
+
+import platform
+
+IS_WINDOWS = platform.system() == 'Windows'
 
 EXT_PATH = "./dist/debug/xsv0"
 
@@ -209,6 +212,10 @@ class TestXsv(unittest.TestCase):
                 {"age": "30", "id": "3", "name": "craig", "process": ".3"},
             ],
         )
+        if IS_WINDOWS:
+            dir = "tests\\data\\"
+        else:
+            dir = "tests/data/"
         self.assertEqual(
             execute_all(
                 'select csv_path(rowid), csv_line_number(rowid), name from "tests/data/students.csv";'
@@ -216,17 +223,17 @@ class TestXsv(unittest.TestCase):
             [
                 {
                     "csv_line_number(rowid)": 2,
-                    "csv_path(rowid)": "tests/data/students.csv",
+                    "csv_path(rowid)": dir + "students.csv",
                     "name": "alex",
                 },
                 {
                     "csv_line_number(rowid)": 3,
-                    "csv_path(rowid)": "tests/data/students.csv",
+                    "csv_path(rowid)": dir + "students.csv",
                     "name": "brian",
                 },
                 {
                     "csv_line_number(rowid)": 4,
-                    "csv_path(rowid)": "tests/data/students.csv",
+                    "csv_path(rowid)": dir + "students.csv",
                     "name": "craig",
                 },
             ],
@@ -234,13 +241,17 @@ class TestXsv(unittest.TestCase):
 
         db.execute('create virtual table "tests/data/glob/*.csv" using csv')
 
+        if IS_WINDOWS:
+            dir = "tests\\data\\glob\\"
+        else:
+            dir = "tests/data/glob/"
         self.assertEqual(
             execute_all(
                 'select csv_path(rowid), csv_line_number(rowid), * from "tests/data/glob/*.csv"'
             ),
             [
                 {
-                    "csv_path(rowid)": "tests/data/glob/a.csv",
+                    "csv_path(rowid)": dir + "a.csv",
                     "csv_line_number(rowid)": 2,
                     "id": "a1",
                     "name": "alex",
@@ -248,7 +259,7 @@ class TestXsv(unittest.TestCase):
                     "process": ".9",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob/a.csv",
+                    "csv_path(rowid)": dir + "a.csv",
                     "csv_line_number(rowid)": 3,
                     "id": "a2",
                     "name": "adrian",
@@ -256,7 +267,7 @@ class TestXsv(unittest.TestCase):
                     "process": ".8",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob/a.csv",
+                    "csv_path(rowid)": dir + "a.csv",
                     "csv_line_number(rowid)": 4,
                     "id": "a3",
                     "name": "andres",
@@ -264,7 +275,7 @@ class TestXsv(unittest.TestCase):
                     "process": ".7",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob/b.csv",
+                    "csv_path(rowid)": dir + "b.csv",
                     "csv_line_number(rowid)": 2,
                     "id": "b1",
                     "name": "brian",
@@ -272,7 +283,7 @@ class TestXsv(unittest.TestCase):
                     "process": ".1",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob/b.csv",
+                    "csv_path(rowid)": dir + "b.csv",
                     "csv_line_number(rowid)": 3,
                     "id": "b2",
                     "name": "beto",
@@ -280,7 +291,7 @@ class TestXsv(unittest.TestCase):
                     "process": ".2",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob/b.csv",
+                    "csv_path(rowid)": dir + "b.csv",
                     "csv_line_number(rowid)": 4,
                     "id": "b3",
                     "name": "brandy",
@@ -288,7 +299,7 @@ class TestXsv(unittest.TestCase):
                     "process": ".3",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob/c.csv",
+                    "csv_path(rowid)": dir + "c.csv",
                     "csv_line_number(rowid)": 2,
                     "id": "c1",
                     "name": "craig",
@@ -296,7 +307,7 @@ class TestXsv(unittest.TestCase):
                     "process": ".4",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob/c.csv",
+                    "csv_path(rowid)": dir + "c.csv",
                     "csv_line_number(rowid)": 3,
                     "id": "c2",
                     "name": "catherine",
@@ -304,7 +315,7 @@ class TestXsv(unittest.TestCase):
                     "process": ".5",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob/c.csv",
+                    "csv_path(rowid)": dir + "c.csv",
                     "csv_line_number(rowid)": 4,
                     "id": "c3",
                     "name": "coin",
@@ -330,67 +341,71 @@ class TestXsv(unittest.TestCase):
             'create virtual table g_err using csv(filename="tests/data/glob_error/*.csv");'
         )
 
+        if IS_WINDOWS:
+            dir = "tests\\data\\glob_error\\"
+        else:
+            dir = "tests/data/glob_error/"
         self.assertEqual(
             execute_all("select csv_path(rowid), * from g_err;"),
             [
                 {
-                    "csv_path(rowid)": "tests/data/glob_error/a.csv",
+                    "csv_path(rowid)": dir + "a.csv",
                     "id": "1",
                     "name": "alex",
                     "age": "10",
                     "process": ".9",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob_error/a.csv",
+                    "csv_path(rowid)": dir + "a.csv",
                     "id": "2",
                     "name": "adrian",
                     "age": "20",
                     "process": ".8",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob_error/a.csv",
+                    "csv_path(rowid)": dir + "a.csv",
                     "id": "3",
                     "name": "andres",
                     "age": "30",
                     "process": ".7",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob_error/b.csv",
+                    "csv_path(rowid)": dir + "b.csv",
                     "id": "1",
                     "name": "brian",
                     "age": "60",
                     "process": ".1",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob_error/b.csv",
+                    "csv_path(rowid)": dir + "b.csv",
                     "id": "2",
                     "name": "beto",
                     "age": "50",
                     "process": ".2",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob_error/b.csv",
+                    "csv_path(rowid)": dir + "b.csv",
                     "id": "3",
                     "name": "brandy",
                     "age": "40",
                     "process": ".3",
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob_error/c.csv",
+                    "csv_path(rowid)": dir + "c.csv",
                     "id": "1",
                     "name": "craig",
                     "age": "70",
                     "process": None,
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob_error/c.csv",
+                    "csv_path(rowid)": dir + "c.csv",
                     "id": "2",
                     "name": "catherine",
                     "age": "90",
                     "process": None,
                 },
                 {
-                    "csv_path(rowid)": "tests/data/glob_error/c.csv",
+                    "csv_path(rowid)": dir + "c.csv",
                     "id": "3",
                     "name": "coin",
                     "age": "80",
