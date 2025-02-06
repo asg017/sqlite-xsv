@@ -28,12 +28,6 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      # windows-specific config
-      #- if: ${{ startsWith(matrix.target, 'windows-') }}
-      #  run: |
-      #    rustup target add x86_64-pc-windows-gnu
-      #    rustup set default-host x86_64-pc-windows-gnu
-      #    echo "RUSTFLAGS=--print=native-static-libs --print=link-args" >> $GITHUB_ENV
       - run: make loadable
       - run: make test-loadable
         env:
