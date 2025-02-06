@@ -32,11 +32,6 @@ TARGET_LOADABLE_RELEASE=$(prefix)/release/xsv0.$(LOADABLE_EXTENSION)
 TARGET_STATIC=$(prefix)/debug/xsv0.a
 TARGET_STATIC_RELEASE=$(prefix)/release/xsv0.a
 
-TARGET_WHEELS=$(prefix)/debug/wheels
-TARGET_WHEELS_RELEASE=$(prefix)/release/wheels
-
-INTERMEDIATE_PYPACKAGE_EXTENSION=python/sqlite_xsv/sqlite_xsv/xsv0.$(LOADABLE_EXTENSION)
-
 ifdef target
 CARGO_TARGET=--target=$(target)
 BUILT_LOCATION=target/$(target)/debug/$(LIBRARY_PREFIX)sqlite_xsv.$(LOADABLE_EXTENSION)
@@ -53,21 +48,10 @@ else
 PYTHON=python3
 endif
 
-ifdef IS_MACOS_ARM
-RENAME_WHEELS_ARGS=--is-macos-arm
-else
-RENAME_WHEELS_ARGS=
-endif
 
 $(prefix):
 	mkdir -p $(prefix)/debug
 	mkdir -p $(prefix)/release
-
-$(TARGET_WHEELS): $(prefix)
-	mkdir -p $(TARGET_WHEELS)
-
-$(TARGET_WHEELS_RELEASE): $(prefix)
-	mkdir -p $(TARGET_WHEELS_RELEASE)
 
 $(TARGET_LOADABLE): $(prefix) $(shell find . -type f -name '*.rs')
 	cargo build $(CARGO_TARGET)
@@ -77,41 +61,12 @@ $(TARGET_LOADABLE_RELEASE): $(prefix) $(shell find . -type f -name '*.rs')
 	cargo build --release $(CARGO_TARGET)
 	cp $(BUILT_LOCATION_RELEASE) $@
 
-python: $(TARGET_WHEELS) $(TARGET_LOADABLE) python/sqlite_xsv/setup.py python/sqlite_xsv/sqlite_xsv/__init__.py .github/workflows/rename-wheels.py
-	cp $(TARGET_LOADABLE) $(INTERMEDIATE_PYPACKAGE_EXTENSION)
-	rm $(TARGET_WHEELS)/sqlite_xsv* || true
-	pip3 wheel python/sqlite_xsv/ -w $(TARGET_WHEELS)
-	python3 .github/workflows/rename-wheels.py $(TARGET_WHEELS) $(RENAME_WHEELS_ARGS)
-
-python-release: $(TARGET_LOADABLE_RELEASE) $(TARGET_WHEELS_RELEASE) python/sqlite_xsv/setup.py python/sqlite_xsv/sqlite_xsv/__init__.py .github/workflows/rename-wheels.py
-	cp $(TARGET_LOADABLE_RELEASE)  $(INTERMEDIATE_PYPACKAGE_EXTENSION)
-	rm $(TARGET_WHEELS_RELEASE)/sqlite_xsv* || true
-	pip3 wheel python/sqlite_xsv/ -w $(TARGET_WHEELS_RELEASE)
-	python3 .github/workflows/rename-wheels.py $(TARGET_WHEELS_RELEASE) $(RENAME_WHEELS_ARGS)
-
-npm: VERSION npm/platform-package.README.md.tmpl npm/platform-package.package.json.tmpl npm/sqlite-xsv/package.json.tmpl scripts/npm_generate_platform_packages.sh
-	scripts/npm_generate_platform_packages.sh
-
-deno: VERSION deno/deno.json.tmpl
-	scripts/deno_generate_package.sh
-
 Cargo.toml: VERSION
 	cargo set-version `cat VERSION`
 
-python/sqlite_xsv/sqlite_xsv/version.py: VERSION
-	printf '__version__ = "%s"\n__version_info__ = tuple(__version__.split("."))\n' `cat VERSION` > $@
-
-bindings/ruby/lib/version.rb: bindings/ruby/lib/version.rb.tmpl VERSION
-	VERSION=$(VERSION) envsubst < $< > $@
-
-ruby: bindings/ruby/lib/version.rb
 
 version: VERSION
 	make Cargo.toml
-	make python/sqlite_xsv/sqlite_xsv/version.py
-	make npm
-	make deno
-	make ruby
 
 format:
 	cargo fmt
@@ -127,8 +82,8 @@ loadable-release: $(TARGET_LOADABLE_RELEASE)
 static: $(TARGET_STATIC)
 static-release: $(TARGET_STATIC_RELEASE)
 
-debug: loadable static python datasette
-release: loadable-release static-release python-release datasette-release
+debug: loadable static
+release: loadable-release static-release
 
 clean:
 	rm dist/*
@@ -137,29 +92,15 @@ clean:
 test-loadable:
 	$(PYTHON) tests/test-loadable.py
 
-test-python:
-	$(PYTHON) tests/test-python.py
-
-test-npm:
-	node npm/sqlite-xsv/test.js
-
-test-deno:
-	deno task --config deno/deno.json test
-
 test:
 	make test-loadable
-	make test-python
-	make test-npm
-	make test-deno
 
 publish-release:
 	./scripts/publish_release.sh
 
 .PHONY: clean \
-	test test-loadable test-python test-npm test-deno \
+	test test-loadable \
 	loadable loadable-release \
-	python python-release \
 	static static-release \
 	debug release \
-	format version publish-release \
-	npm deno ruby
+	format version publish-release

@@ -2,171 +2,95 @@ name: "Release"
 on:
   release:
     types: [published]
-  workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  build-ubuntu-extension:
-    name: Build ubuntu
-    runs-on: ubuntu-20.04
+  build-extension:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-20.04
+            target: linux-x86_64
+          - os: ubuntu-22.04-arm
+            target: linux-aarch64
+          - os: macos-13
+            target: macos-x86_64
+          - os: macos-14
+            target: macos-aarch64
+          - os: windows-2019
+            target: windows-x86_64
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
       - run: make loadable-release
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
-          name: sqlite-xsv-ubuntu
-          path: dist/release/xsv0.so
-  build-ubuntu-python:
-    runs-on: ubuntu-20.04
-    needs: [build-ubuntu-extension]
+          name: ${{ matrix.target }}
+          path: dist/release/*
+  dist:
+    runs-on: ubuntu-latest
+    needs:
+      [
+        build-extension,
+      ]
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v3
-      - name: Download workflow artifacts
-        uses: actions/download-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: sqlite-xsv-ubuntu
-          path: dist/release/
-      - uses: actions/setup-python@v3
-      - run: pip install wheel
-      - run: make python-release
-      - uses: actions/upload-artifact@v3
+          path: dist/
+      - run: |
+          curl -L https://github.com/asg017/sqlite-dist/releases/download/v0.0.1-alpha.19/sqlite-dist-x86_64-unknown-linux-gnu.tar.xz \
+            | tar xfJ - --strip-components 1
+      - run: ./sqlite-dist ./sqlite-dist.toml --input dist/ --output distx/ --version $(cat VERSION)
+      - run: |
+          gh release upload ${{ github.ref_name }} \
+            distx/github_releases/* \
+            distx/spm/* \
+            distx/sqlpkg/* \
+            distx/checksums.txt \
+            distx/sqlite-dist-manifest.json \
+            distx/install.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Install node
+        uses: actions/setup-node@v3
         with:
-          name: sqlite-xsv-ubuntu-wheels
-          path: dist/release/wheels/*.whl
-  build-macos-extension:
-    name: Build macos-latest
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v3
+          node-version: "16"
+          registry-url: "https://registry.npmjs.org"
+      - run: |
+          npm publish --access public distx/npm/sqlite-xsv-darwin-arm64.tar.gz
+          npm publish --access public distx/npm/sqlite-xsv-darwin-x64.tar.gz
+          npm publish --access public distx/npm/sqlite-xsv-linux-x64.tar.gz
+          npm publish --access public distx/npm/sqlite-xsv-linux-arm64.tar.gz
+          npm publish --access public distx/npm/sqlite-xsv-windows-x64.tar.gz
+          npm publish --access public distx/npm/sqlite-xsv.tar.gz
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: ruby/setup-ruby@v1
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - uses: actions-rs/toolchain@v1
+          ruby-version: 3.2
+      - run: |
+          for file in distx/gem/*; do
+            gem push  "$file"
+          done
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.GEM_HOST_API_KEY }}
+      - uses: actions/setup-python@v5
         with:
-          toolchain: stable
-      - run: make loadable-release
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: sqlite-xsv-macos
-          path: dist/release/xsv0.dylib
-  build-macos-python:
-    runs-on: macos-latest
-    needs: [build-macos-extension]
-    steps:
-      - uses: actions/checkout@v3
-      - name: Download workflow artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: sqlite-xsv-macos
-          path: dist/release/
-      - uses: actions/setup-python@v3
-      - run: pip install wheel
-      - run: make python-release
-      - uses: actions/upload-artifact@v3
-        with:
-          name: sqlite-xsv-macos-wheels
-          path: dist/release/wheels/*.whl
-  build-macos-arm-extension:
-    name: Build macos-latest with arm
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - run: rustup target add aarch64-apple-darwin
-      - run: make loadable-release target=aarch64-apple-darwin
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: sqlite-xsv-macos-arm
-          path: dist/release/xsv0.dylib
-  build-macos-arm-python:
-    runs-on: macos-latest
-    needs: [build-macos-arm-extension]
-    steps:
-      - uses: actions/checkout@v3
-      - name: Download workflow artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: sqlite-xsv-macos-arm
-          path: dist/release/
-      - uses: actions/setup-python@v3
-      - run: pip install wheel
-      - run: make python-release IS_MACOS_ARM=1
-      - uses: actions/upload-artifact@v3
-        with:
-          name: sqlite-xsv-macos-arm-wheels
-          path: dist/release/wheels/*.whl
-  build-windows-extension:
-    name: Build windows-latest
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - run: make loadable-release
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: sqlite-xsv-windows
-          path: dist/release/xsv0.dll
-  build-windows-python:
-    runs-on: windows-latest
-    needs: [build-windows-extension]
-    steps:
-      - uses: actions/checkout@v3
-      - name: Download workflow artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: sqlite-xsv-windows
-          path: dist/release/
-      - uses: actions/setup-python@v3
-      - run: pip install wheel
-      - run: make python-release
-      - uses: actions/upload-artifact@v3
-        with:
-          name: sqlite-xsv-windows-wheels
-          path: dist/release/wheels/*.whl
+          python-version: "3.12"
+      - run: pip install twine
+      - run: |
+          twine upload distx/pip/*
+          twine upload distx/datasette/*
+          twine upload distx/sqlite_utils/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
   upload-crate:
     runs-on: ubuntu-latest
     steps:
@@ -177,175 +101,4 @@ jobs:
       - run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-  upload-extensions:
-    name: Upload release assets
-    needs:
-      [
-        build-macos-extension,
-        build-macos-arm-extension,
-        build-ubuntu-extension,
-        build-windows-extension,
-      ]
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
-      - uses: asg017/upload-spm@main
-        id: upload-spm
-        with:
-          name: sqlite-xsv
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          platforms: |
-            linux-x86_64:     sqlite-xsv-ubuntu/*
-            macos-x86_64:     sqlite-xsv-macos/*
-            macos-aarch64:    sqlite-xsv-macos-arm/*
-            windows-x86_64:   sqlite-xsv-windows/*
-  upload-deno:
-    name: Upload Deno release assets
-    needs:
-      [
-        build-macos-extension,
-        build-macos-arm-extension,
-        build-ubuntu-extension,
-        build-windows-extension,
-      ]
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Download workflow artifacts
-        uses: actions/download-artifact@v2
-      - uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const script = require('.github/workflows/upload-deno-assets.js')
-            await script({github, context})
-  upload-npm:
-    needs:
-      [
-        build-macos-extension,
-        build-macos-arm-extension,
-        build-ubuntu-extension,
-        build-windows-extension,
-      ]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Download workflow artifacts
-        uses: actions/download-artifact@v2
-      - run: |
-          cp sqlite-xsv-ubuntu/xsv0.so npm/sqlite-xsv-linux-x64/lib/xsv0.so
-          cp sqlite-xsv-macos/xsv0.dylib npm/sqlite-xsv-darwin-x64/lib/xsv0.dylib
-          cp sqlite-xsv-macos-arm/xsv0.dylib npm/sqlite-xsv-darwin-arm64/lib/xsv0.dylib
-          cp sqlite-xsv-windows/xsv0.dll npm/sqlite-xsv-windows-x64/lib/xsv0.dll
-      - name: Install node
-        uses: actions/setup-node@v3
-        with:
-          node-version: "16"
-          registry-url: "https://registry.npmjs.org"
-      - name: Publish NPM sqlite-xsv-linux-x64
-        working-directory: npm/sqlite-xsv-linux-x64
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Publish NPM sqlite-xsv-darwin-x64
-        working-directory: npm/sqlite-xsv-darwin-x64
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Publish NPM sqlite-xsv-darwin-arm64
-        working-directory: npm/sqlite-xsv-darwin-arm64
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Publish NPM sqlite-xsv-windows-x64
-        working-directory: npm/sqlite-xsv-windows-x64
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Publish NPM sqlite-xsv
-        working-directory: npm/sqlite-xsv
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-  upload-gem:
-    needs: [
-      build-macos-extension,
-      build-macos-arm-extension,
-      build-ubuntu-extension,
-      build-windows-extension,
-    ]
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 3.2
-      - run: |
-          rm bindings/ruby/lib/*.{dylib,so,dll} || true
-          cp sqlite-xsv-macos/*.dylib bindings/ruby/lib
-          gem -C bindings/ruby build -o x86_64-darwin.gem sqlite_xsv.gemspec
-        env:
-          PLATFORM: x86_64-darwin
-      - run: |
-          rm bindings/ruby/lib/*.{dylib,so,dll} || true
-          cp sqlite-xsv-macos-arm/*.dylib bindings/ruby/lib
-          gem -C bindings/ruby build -o arm64-darwin.gem sqlite_xsv.gemspec
-        env:
-          PLATFORM: arm64-darwin
-      - run: |
-          rm bindings/ruby/lib/*.{dylib,so,dll} || true
-          cp sqlite-xsv-ubuntu/*.so bindings/ruby/lib
-          gem -C bindings/ruby build -o x86_64-linux.gem sqlite_xsv.gemspec
-        env:
-          PLATFORM: x86_64-linux
-      - run: |
-          rm bindings/ruby/lib/*.{dylib,so,dll} || true
-          cp sqlite-xsv-windows/*.dll bindings/ruby/lib
-          gem -C bindings/ruby build -o ${{ env.PLATFORM }}.gem sqlite_xsv.gemspec
-        env:
-          PLATFORM: x64-mingw32
-      - run: |
-          gem push bindings/ruby/x86_64-linux.gem
-          gem push bindings/ruby/x86_64-darwin.gem
-          gem push bindings/ruby/arm64-darwin.gem
-          gem push bindings/ruby/x64-mingw32.gem
-        env:
-          GEM_HOST_API_KEY: ${{ secrets.GEM_HOST_API_KEY }}
-  upload-pypi:
-    needs:
-      [
-        build-ubuntu-python,
-        build-macos-python,
-        build-macos-arm-python,
-        build-windows-python,
-      ]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v3
-        with:
-          name: sqlite-xsv-windows-wheels
-          path: dist
-      - uses: actions/download-artifact@v3
-        with:
-          name: sqlite-xsv-ubuntu-wheels
-          path: dist
-      - uses: actions/download-artifact@v3
-        with:
-          name: sqlite-xsv-macos-wheels
-          path: dist
-      - uses: actions/download-artifact@v3
-        with:
-          name: sqlite-xsv-macos-arm-wheels
-          path: dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          skip_existing: true
+  
