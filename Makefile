@@ -90,6 +90,7 @@ clean:
 	cargo clean
 
 test-loadable:
+	echo "UV_PYTHON_PREFERENCE=$(UV_PYTHON_PREFERENCE)"
 	uv run tests/test-loadable.py
 
 test:
