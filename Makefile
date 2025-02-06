@@ -90,7 +90,7 @@ clean:
 	cargo clean
 
 test-loadable:
-	$(PYTHON) tests/test-loadable.py
+	uv run tests/test-loadable.py
 
 test:
 	make test-loadable
